@@ -41,72 +41,52 @@ class DashboardController extends Controller
         $completedTasks = Schema::hasTable('tasks') ? Task::where('status', 'completed')->count() : 0;
         $recentTasks = Schema::hasTable('tasks') ? Task::with(['user', 'project'])->latest()->take(10)->get() : collect();
 
-        // 🚀 5. TASK PROGRESS HEATMAP LOGIC (Last 7 Days)
+        // 🚀 5. TASK PROGRESS HEATMAP LOGIC
         $heatmapDays = [];
         $heatmapCounts = [];
-
         if (Schema::hasTable('tasks')) {
             for ($i = 6; $i >= 0; $i--) {
                 $date = Carbon::now()->subDays($i);
                 $heatmapDays[] = $date->format('D'); 
-                $count = Task::whereDate('updated_at', $date->toDateString())
-                             ->where('status', 'completed')
-                             ->count();
+                $count = Task::whereDate('updated_at', $date->toDateString())->where('status', 'completed')->count();
                 $heatmapCounts[] = $count;
             }
         }
 
-        // 🚀 6. LIVE TELEMETRY & PERFORMANCE (CRITICAL SYNC FIX)
+        // 🚀 6. LIVE TELEMETRY & PERFORMANCE
         $liveAttendance = collect();
         $employeePerformance = collect();
-        $totalPresentToday = 0;
-
         if (Schema::hasTable('attendances')) {
-            // ✅ Fix: Check out null hona chahiye taake active dikhein
             $liveAttendance = Attendance::with(['user.department'])
                                 ->whereDate('date', $today)
                                 ->whereNull('check_out') 
                                 ->latest('updated_at')
                                 ->get();
             
-            $totalPresentToday = $liveAttendance->count();
-
             $employeePerformance = $liveAttendance->map(function($att) {
-                // Latest screenshot fetch logic
-                $latestSnap = Screenshot::where('user_id', $att->user_id)
-                                ->whereDate('created_at', Carbon::today())
-                                ->latest()
-                                ->first();
-
+                $latestSnap = Screenshot::where('user_id', $att->user_id)->whereDate('created_at', Carbon::today())->latest()->first();
                 $totalSeconds = $att->work_time ?? 0; 
                 $h = floor($totalSeconds / 3600);
                 $m = floor(($totalSeconds % 3600) / 60);
-
-                // 🛰️ Heartbeat Logic: Check signal status
-                $lastSeen = Carbon::parse($att->updated_at);
-                $isSignalActive = $lastSeen->diffInMinutes(now()) < 3; // 3 min threshold
+                $isSignalActive = Carbon::parse($att->updated_at)->diffInMinutes(now()) < 5;
 
                 return (object)[
                     'user_id'           => $att->user_id,
                     'name'              => $att->user->name ?? 'Unknown Operator',
                     'is_online'         => $isSignalActive,
-                    'status'            => $att->status, 
-                    'check_in'          => $att->check_in,
                     'watch_time'        => "{$h}h {$m}m",
                     'last_screenshot'   => $latestSnap ? $latestSnap->image_path : null,
-                    'last_window'       => $latestSnap ? $latestSnap->window_title : 'Scanning Signal...',
+                    'last_window'       => $latestSnap ? $latestSnap->window_title : 'Scanning...',
                     'user'              => $att->user,
-                    'signal_strength'   => $isSignalActive ? 'Active' : 'Standby'
                 ];
             });
         }
 
         // 🛡️ 7. SECURITY BLACKLIST MONITORING
-        $blacklist = ['facebook', 'youtube', 'netflix', 'instagram', 'whatsapp', 'tiktok', 'roblox'];
+        $blacklist = ['facebook', 'youtube', 'netflix', 'instagram', 'whatsapp', 'tiktok'];
         $securityAlerts = [];
-
         foreach ($employeePerformance as $perf) {
-            if (isset($perf->last_window) && $perf->last_window) {
+            if (isset($perf->last_window)) {
                 $windowTitle = strtolower($perf->last_window);
                 foreach ($blacklist as $site) {
                     if (str_contains($windowTitle, $site)) {
@@ -123,45 +103,33 @@ class DashboardController extends Controller
         }
 
         // 🚀 8. AI COMPLIANCE STATS
-        $globalAiStats = ['work' => 100, 'ai_tool' => 0, 'social_media' => 0];
+        $globalAiStats = ['work' => 100, 'ai_tool' => 0];
         $aiToolBreakdown = collect();
-
-        if (Schema::hasTable('ai_usage_logs') && Schema::hasTable('attendances')) {
+        if (Schema::hasTable('ai_usage_logs')) {
             $aiSeconds = AiUsageLog::whereDate('log_date', $today)->sum('duration_seconds') ?? 0;
             $totalWorkSeconds = Attendance::whereDate('date', $today)->sum('work_time') ?? 0;
-
-            if ($totalWorkSeconds > 0) {
-                $aiPercentage = min(round(($aiSeconds / $totalWorkSeconds) * 100, 1), 100);
-                $workPercentage = 100 - $aiPercentage;
-            } else {
-                $aiPercentage = 0;
-                $workPercentage = 100;
-            }
-
-            $globalAiStats = ['work' => $workPercentage, 'ai_tool' => $aiPercentage, 'social_media' => 0];
-
+            $aiPercentage = $totalWorkSeconds > 0 ? min(round(($aiSeconds / $totalWorkSeconds) * 100, 1), 100) : 0;
+            $globalAiStats = ['work' => 100 - $aiPercentage, 'ai_tool' => $aiPercentage];
             $aiToolBreakdown = AiUsageLog::whereDate('log_date', $today)
                                 ->select('ai_tool', DB::raw('SUM(duration_seconds) as total_time'))
-                                ->groupBy('ai_tool')
-                                ->orderBy('total_time', 'desc')
-                                ->get();
+                                ->groupBy('ai_tool')->orderBy('total_time', 'desc')->get();
         }
 
-        // ✨ 9. FEEDBACK DATA
-        $adminFeedbacks = Schema::hasTable('admin_feedbacks') 
-            ? AdminFeedback::with('employee')->latest()->take(10)->get() 
-            : collect();
+        // ✨ 9. DAILY SUMMARIES (Fix: Employee Reports Fetching)
+        // Employee jo summaries bhej raha hai stop session par, wo yahan fetch hongi
+        $shiftReports = ShiftReport::with('user')
+                            ->whereDate('report_date', $today)
+                            ->latest()
+                            ->get();
 
-        $employeeFeedbacks = Schema::hasTable('employee_feedbacks') 
-            ? EmployeeFeedback::with('user')->latest()->take(10)->get() 
-            : collect();
+        $adminFeedbacks = AdminFeedback::with('employee')->latest()->take(10)->get();
+        $employeeFeedbacks = EmployeeFeedback::with(['user', 'task'])->latest()->take(10)->get();
 
         return view('admin.dashboard', compact(
             'totalEmployees', 'activeEmployees', 'activeProjects', 'pendingProjects', 
             'totalTasks', 'completedTasks', 'totalDepartments', 'recentProjects', 
-            'recentTasks', 'liveAttendance', 'totalPresentToday', 
-            'employeePerformance', 'globalAiStats', 'aiToolBreakdown',
-            'adminFeedbacks', 'employeeFeedbacks',
+            'recentTasks', 'employeePerformance', 'globalAiStats', 'aiToolBreakdown',
+            'adminFeedbacks', 'employeeFeedbacks', 'shiftReports', // ⭐ Added shiftReports
             'heatmapDays', 'heatmapCounts', 'securityAlerts'
         ));
     }
@@ -176,13 +144,11 @@ class DashboardController extends Controller
     {
         try {
             $screenshot = Screenshot::findOrFail($id);
-            if ($screenshot->image_path && Storage::disk('public')->exists($screenshot->image_path)) {
-                Storage::disk('public')->delete($screenshot->image_path);
-            }
+            if ($screenshot->image_path) Storage::disk('public')->delete($screenshot->image_path);
             $screenshot->delete();
-            return response()->json(['success' => true, 'message' => 'Pulse purged.']);
+            return response()->json(['success' => true]);
         } catch (\Exception $e) {
-            return response()->json(['success' => false, 'message' => 'Error: ' . $e->getMessage()], 500);
+            return response()->json(['success' => false], 500);
         }
     }
 }

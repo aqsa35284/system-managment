@@ -26,4 +26,10 @@ class AdminFeedback extends Model
     public function employee() {
         return $this->belongsTo(User::class, 'employee_id');
     }
+    // app/Models/AdminFeedback.php
+
+public function task()
+{
+    return $this->belongsTo(Task::class, 'task_id');
+}
 }

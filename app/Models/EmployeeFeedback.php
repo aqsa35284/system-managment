@@ -20,4 +20,10 @@ class EmployeeFeedback extends Model
     public function user() {
         return $this->belongsTo(User::class, 'user_id');
     }
+    // app/Models/EmployeeFeedback.php
+
+public function task()
+{
+    return $this->belongsTo(Task::class, 'task_id');
+}
 }

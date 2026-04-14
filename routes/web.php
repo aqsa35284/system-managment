@@ -107,3 +107,4 @@ Route::middleware(['auth', 'employee'])->prefix('employee')->name('employee.')->
     // ⭐ EMPLOYEE FEEDBACK ROUTE (MISSING FIXED)
     Route::post('/feedback/store', [EmployeeFeedbackController::class, 'store'])->name('feedback.store');
 });
+Route::post('/session-stop', [EmpDash::class, 'stopSession'])->name('session.stop');
