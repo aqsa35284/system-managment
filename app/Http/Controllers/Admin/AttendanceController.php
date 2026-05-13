@@ -7,77 +7,91 @@ use App\Models\Attendance;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Carbon\Carbon;
+use Illuminate\Support\Facades\DB;
 
 class AttendanceController extends Controller
 {
     /**
-     * Admin Fleet Monitoring - Full Records with Filters
+     * Admin Fleet Monitoring - Grouped Records with Shift-wise Intel
      */
     public function index(Request $request)
     {
-        $query = Attendance::with('user');
+        // 1. Initial Query for Overall Stats (Un-grouped for accurate sums)
+        $statsQuery = Attendance::query();
 
-        // 🔍 1. Filter by Specific Date
+        //  Apply Base Filters for Stats
         if ($request->filled('date')) {
-            $query->whereDate('date', $request->date);
+            $statsQuery->whereDate('date', $request->date);
         }
-
-        // 🔍 2. Filter by Month
         if ($request->filled('month')) {
-            $month = Carbon::parse($request->month)->month;
-            $year = Carbon::parse($request->month)->year;
-            $query->whereMonth('date', $month)->whereYear('date', $year);
+            $monthDate = Carbon::parse($request->month);
+            $statsQuery->whereMonth('date', $monthDate->month)->whereYear('date', $monthDate->year);
         }
-
-        // 🔍 3. Filter by Year
-        if ($request->filled('year')) {
-            $query->whereYear('date', $request->year);
-        }
-
-        // 🔍 4. Filter by Operator (User)
         if ($request->filled('user_id')) {
-            $query->where('user_id', $request->user_id);
+            $statsQuery->where('user_id', $request->user_id);
         }
 
-        // 🔍 5. Filter by Shift
-        if ($request->filled('shift')) {
-            $query->where('shift', $request->shift);
-        }
+        // 2.  ADVANCED GROUPED LOGIC: Har operator ki aik din ki shift-wise report
+        // Pakistani Waqt ke mutabiq shifts divide ki gayi hain
+        $groupedQuery = Attendance::with(['user.department'])
+            ->select(
+                'user_id',
+                'date',
+                //  Morning Shift (05:00 to 11:59)
+                DB::raw("SUM(CASE WHEN HOUR(check_in) >= 5 AND HOUR(check_in) < 12 THEN work_time ELSE 0 END) as morning_seconds"),
+                //  Afternoon Shift (12:00 to 16:59)
+                DB::raw("SUM(CASE WHEN HOUR(check_in) >= 12 AND HOUR(check_in) < 17 THEN work_time ELSE 0 END) as afternoon_seconds"),
+                //  Evening/Night Shift (17:00 to 04:59) - Handles midnight crossing
+                DB::raw("SUM(CASE WHEN HOUR(check_in) >= 17 OR HOUR(check_in) < 5 THEN work_time ELSE 0 END) as night_seconds"),
+                // Totals & Integrity
+                DB::raw('SUM(work_time) as total_work_seconds'),
+                DB::raw('MIN(check_in) as first_entry'),
+                DB::raw('MAX(check_out) as last_exit'),
+                DB::raw('COUNT(*) as total_sessions'), // ⭐ Login Frequency
+                DB::raw('MAX(status) as current_integrity')
+            )
+            // Re-apply Filters to the grouped results
+            ->when($request->date, fn($q) => $q->whereDate('date', $request->date))
+            ->when($request->month, function($q) use ($request) {
+                $m = Carbon::parse($request->month);
+                return $q->whereMonth('date', $m->month)->whereYear('date', $m->year);
+            })
+            ->when($request->user_id, fn($q) => $q->where('user_id', $request->user_id))
+            ->groupBy('user_id', 'date')
+            ->orderBy('date', 'desc')
+            ->orderBy('first_entry', 'desc');
 
-        // Clone query for stats calculation before pagination
-        $statsQuery = clone $query;
+        $attendances = $groupedQuery->paginate(20)->withQueryString();
 
-        // Sorting: Sabse naya session sabse upar
-        $attendances = $query->latest('date')->latest('check_in')->paginate(20);
-        
-        // Fleet selection dropdown ke liye
-        $employees = User::where('role', 'employee')->get();
-
-        // 📊 🚀 ACCURATE STATS FIX:
-        // Sum work_time (seconds) instead of total_hours for real-time accuracy
+        // 3. 📊 ACCURATE INTEL CALCULATIONS
         $totalSeconds = $statsQuery->sum('work_time');
         $calculatedHours = $totalSeconds / 3600;
 
-        // ✨ FIX: Active Now logic should follow the current date for accuracy
+        // Today's Real-time Active Signal Check
         $activeNow = Attendance::whereNull('check_out')
             ->whereDate('date', Carbon::today())
+            ->distinct('user_id')
             ->count();
 
         $stats = [
             'total_hours'    => round($calculatedHours, 2),
-            'total_sessions' => $statsQuery->count(),
-            'active_now'     => $activeNow // Yeh ab zero nahi dikhayega agar koi active hai
+            'total_sessions' => $statsQuery->count(), // Total logins count
+            'active_now'     => $activeNow,
+            'filtered_count' => $attendances->total()
         ];
+
+        // Fleet selection for dropdown filter
+        $employees = User::where('role', 'employee')->get();
 
         return view('admin.attendance.index', compact('attendances', 'employees', 'stats'));
     }
 
     /**
-     * Delete record if needed
+     * Delete operational log record
      */
     public function destroy($id)
     {
         Attendance::findOrFail($id)->delete();
-        return back()->with('success', 'Operational log purged successfully.');
+        return back()->with('success', 'Operational log entry purged successfully.');
     }
 }

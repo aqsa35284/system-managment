@@ -10,10 +10,9 @@
 
     {{-- ⭐ Real-time Identity Injector --}}
     <script>
-        window.UserId = {{ auth()->id() }};
+        window.UserId = {{ auth()->id() ?? 'null' }};
         window.UserDeptId = {{ auth()->user()->department_id ?? 'null' }};
         window.currentChatId = null; 
-        window.currentDeptId = null;
     </script>
 
     @vite(['resources/css/app.css', 'resources/js/app.js'])
@@ -32,9 +31,7 @@
             border-left: 3px solid #3b82f6;
         }
         
-        .sidebar-link.active i { 
-            color: #93c5fd !important;
-        }
+        .sidebar-link.active i { color: #93c5fd !important; }
         
         .glass-effect {
             background: rgba(255, 255, 255, 0.05);
@@ -59,8 +56,17 @@
             100% { transform: translateY(-1000px) rotate(720deg); opacity: 0; border-radius: 50%; }
         }
         
-        .notification-slide { animation: slideDown 0.5s ease-out; }
-        @keyframes slideDown { from { transform: translateY(-100%); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+        /* ⭐ Toast Animation */
+        @keyframes toast-slide-in {
+            0% { transform: translateX(100%); opacity: 0; }
+            100% { transform: translateX(0); opacity: 1; }
+        }
+        @keyframes toast-slide-out {
+            0% { transform: translateX(0); opacity: 1; }
+            100% { transform: translateX(100%); opacity: 0; }
+        }
+        .toast-enter { animation: toast-slide-in 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards; }
+        .toast-leave { animation: toast-slide-out 0.4s ease-in forwards; }
     </style>
 </head>
 <body class="text-white overflow-x-hidden">
@@ -68,16 +74,21 @@
         <span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span>
     </div>
 
+    {{-- ⭐ Toast Container (Popups will appear here) --}}
+    <div id="toast-container" class="fixed bottom-6 right-6 z-[9999] flex flex-col gap-3 pointer-events-none"></div>
+
     <div class="flex min-h-screen relative z-10">
         <aside id="sidebar" class="w-72 sidebar-gradient border-r border-white/10 hidden lg:flex flex-col fixed h-full z-50 transition-all duration-300 custom-sidebar">
             <div class="p-8">
-                <div class="flex items-center gap-3">
-                    <div class="w-10 h-10 bg-gradient-to-r from-blue-500 to-indigo-600 rounded-xl flex items-center justify-center shadow-lg">
-                        <i class="fas fa-shield-alt text-white"></i>
-                    </div>
-                    <div>
-                        <h1 class="text-2xl font-bold text-white tracking-tight uppercase">Admin <span class="bg-gradient-to-r from-blue-400 to-indigo-400 bg-clip-text text-transparent">Pro</span></h1>
-                        <p class="text-xs text-white/60 uppercase tracking-widest mt-1">Fleet Management</p>
+                <div class="flex items-center justify-between">
+                    <div class="flex items-center gap-3">
+                        <div class="w-10 h-10 bg-gradient-to-r from-blue-500 to-indigo-600 rounded-xl flex items-center justify-center shadow-lg">
+                            <i class="fas fa-shield-alt text-white"></i>
+                        </div>
+                        <div>
+                            <h1 class="text-2xl font-bold text-white tracking-tight uppercase">Admin <span class="bg-gradient-to-r from-blue-400 to-indigo-400 bg-clip-text text-transparent">Pro</span></h1>
+                            <p class="text-[10px] text-cyan-400 uppercase tracking-widest mt-0.5 animate-pulse">System Online</p>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -103,49 +114,48 @@
                     <i class="fas fa-check-double w-5 text-rose-400"></i> Task Board
                 </a>
 
-                {{-- ⭐ Updated Comms Hub --}}
+                {{-- ⭐ Comms Hub with Glowing Notification Badge --}}
                 <a href="{{ route('chat.index') }}" class="sidebar-link group flex items-center justify-between p-4 rounded-xl font-medium text-sm transition-all {{ request()->routeIs('chat.*') ? 'active' : 'text-white/70 hover:bg-white/5' }}">
                     <div class="flex items-center gap-4">
-                        <i class="fas fa-comment-dots w-5 text-blue-500 group-hover:animate-bounce"></i> 
+                        <div class="relative">
+                            <i class="fas fa-comment-dots w-5 text-blue-500 group-hover:scale-110 transition-transform"></i>
+                            <span id="admin-chat-ping" class="hidden absolute -top-1 -right-1 w-2 h-2 bg-rose-500 rounded-full animate-ping"></span>
+                        </div>
                         Comms Hub
                     </div>
-                    <span id="admin-chat-badge" class="hidden min-w-[20px] h-5 bg-rose-600 text-white text-[10px] font-black rounded-full flex items-center justify-center px-1 shadow-lg shadow-rose-500/40">0</span>
+                    <span id="admin-chat-badge" class="hidden min-w-[22px] h-[22px] bg-gradient-to-r from-rose-500 to-rose-600 text-white text-[10px] font-black rounded-full flex items-center justify-center shadow-[0_0_15px_rgba(225,29,72,0.6)]">0</span>
                 </a>
 
                 <a href="{{ route('admin.attendance.index') }}" class="sidebar-link flex items-center gap-4 p-4 rounded-xl font-medium text-sm transition-all {{ request()->routeIs('admin.attendance.*') ? 'active' : 'text-white/70 hover:bg-white/5' }}">
                     <i class="fas fa-fingerprint w-5 text-indigo-400"></i> Fleet Attendance
                 </a>
-{{-- ⭐ New: Shift Intelligence (Reports) --}}
-<a href="{{ route('admin.reports.shifts') }}" class="sidebar-link group flex items-center gap-4 p-4 rounded-xl font-medium text-sm transition-all {{ request()->routeIs('admin.reports.shifts') ? 'active' : 'text-white/70 hover:bg-white/5' }}">
-    <div class="relative">
-        <i class="fas fa-file-invoice w-5 text-cyan-400 group-hover:rotate-12 transition-transform"></i>
-        {{-- Chota sa dot indicator taake futuristic lage --}}
-        <span class="absolute -top-1 -right-1 w-2 h-2 bg-cyan-500 rounded-full animate-ping opacity-75"></span>
-    </div>
-    Shift Intelligence
-</a>
-                <div class="pt-4 mt-4 border-t border-white/10">
-                    <a href="#" class="sidebar-link flex items-center gap-4 p-4 rounded-xl font-medium text-sm text-white/70 hover:bg-white/5 transition-all">
-                        <i class="fas fa-chart-bar text-cyan-400 w-5"></i> Analytics
-                    </a>
-                </div>
+
+                <a href="{{ route('admin.reports.shifts') }}" class="sidebar-link group flex items-center gap-4 p-4 rounded-xl font-medium text-sm transition-all {{ request()->routeIs('admin.reports.shifts') ? 'active' : 'text-white/70 hover:bg-white/5' }}">
+                    <div class="relative">
+                        <i class="fas fa-file-invoice w-5 text-cyan-400 group-hover:rotate-12 transition-transform"></i>
+                    </div>
+                    Shift Intelligence
+                </a>
+
             </nav>
 
             <div class="p-6 border-t border-white/10">
-                <div class="flex items-center gap-3 mb-6 p-3 glass-effect rounded-xl">
-                    <div class="w-12 h-12 rounded-xl bg-gradient-to-r from-blue-500 to-indigo-600 flex items-center justify-center text-white font-bold shadow-lg">
+                <div class="flex items-center gap-3 mb-6 p-3 glass-effect rounded-xl relative overflow-hidden group">
+                    <div class="absolute inset-0 bg-blue-500/10 translate-y-full group-hover:translate-y-0 transition-transform duration-300"></div>
+                    <div class="w-12 h-12 rounded-xl bg-gradient-to-r from-blue-500 to-indigo-600 flex items-center justify-center text-white font-bold shadow-lg z-10">
                         {{ auth()->check() ? substr(auth()->user()->name, 0, 1) : 'A' }}
                     </div>
-                    <div class="flex-1 overflow-hidden">
-                        <p class="text-sm font-semibold text-white truncate">{{ auth()->user()->name ?? 'Admin User' }}</p>
-                        <p class="text-xs text-white/60 uppercase tracking-wider">Administrator</p>
+                    <div class="flex-1 overflow-hidden z-10">
+                        <p class="text-sm font-bold text-white truncate">{{ auth()->user()->name ?? 'Admin User' }}</p>
+                        <p class="text-[10px] text-emerald-400 uppercase tracking-widest flex items-center gap-1">
+                            <span class="w-1.5 h-1.5 bg-emerald-400 rounded-full animate-pulse"></span> Active
+                        </p>
                     </div>
-                    <div class="w-3 h-3 bg-emerald-500 rounded-full animate-pulse"></div>
                 </div>
 
                 <form action="{{ route('logout') }}" method="POST">
                     @csrf
-                    <button type="submit" class="w-full flex items-center justify-center gap-2 p-3 glass-effect text-rose-400 rounded-xl font-medium text-sm uppercase tracking-wider hover:bg-rose-500/10 transition-all group">
+                    <button type="submit" class="w-full flex items-center justify-center gap-2 p-3 glass-effect text-rose-400 rounded-xl font-bold text-[11px] uppercase tracking-[0.2em] hover:bg-rose-500 hover:text-white border border-transparent hover:border-rose-400 transition-all group">
                         <i class="fas fa-power-off group-hover:animate-pulse"></i> Terminate Session
                     </button>
                 </form>
@@ -156,48 +166,134 @@
             <header class="lg:hidden glass-effect p-4 flex justify-between items-center sticky top-0 z-40">
                 <div class="flex items-center gap-3">
                     <div class="w-10 h-10 bg-gradient-to-r from-blue-500 to-indigo-600 rounded-xl flex items-center justify-center shadow-lg"><i class="fas fa-shield-alt text-white"></i></div>
-                    <h1 class="font-bold text-white uppercase tracking-tight">Admin <span class="bg-gradient-to-r from-blue-400 to-indigo-400 bg-clip-text text-transparent">Pro</span></h1>
+                    <h1 class="font-bold text-white uppercase tracking-tight">Admin <span class="text-blue-400">Pro</span></h1>
                 </div>
-                <button onclick="toggleSidebar()" class="text-white/80 text-xl p-2 rounded-xl glass-effect"><i class="fas fa-bars"></i></button>
+                <div class="flex items-center gap-4">
+                    <button id="mobile-chat-btn" class="relative text-slate-300">
+                        <i class="fas fa-bell text-xl"></i>
+                        <span id="mobile-chat-badge" class="hidden absolute -top-1 -right-1 w-3 h-3 bg-rose-500 border-2 border-[#0F172A] rounded-full"></span>
+                    </button>
+                    <button onclick="toggleSidebar()" class="text-white/80 text-xl p-2 rounded-xl glass-effect"><i class="fas fa-bars"></i></button>
+                </div>
             </header>
-
-            @if(session('success'))
-            <div class="p-6 pb-0">
-                <div class="glass-effect bg-emerald-500/20 border border-emerald-500/30 text-white p-4 rounded-2xl font-medium uppercase text-xs tracking-wider flex items-center gap-3 notification-slide">
-                    <i class="fas fa-check-circle text-emerald-400 text-lg"></i> <span>{{ session('success') }}</span>
-                </div>
-            </div>
-            @endif
 
             <div class="p-4 lg:p-8">@yield('content')</div>
         </main>
     </div>
 
-    <div id="sidebar-overlay" class="fixed inset-0 bg-black/50 z-40 hidden lg:hidden" onclick="toggleSidebar()"></div>
+    <div id="sidebar-overlay" class="fixed inset-0 bg-black/50 backdrop-blur-sm z-40 hidden lg:hidden" onclick="toggleSidebar()"></div>
 
+    {{-- ⭐ Notification Engine --}}
     <script>
         function toggleSidebar() {
-            const sidebar = document.getElementById('sidebar');
-            const overlay = document.getElementById('sidebar-overlay');
-            sidebar.classList.toggle('hidden');
-            overlay.classList.toggle('hidden');
+            document.getElementById('sidebar').classList.toggle('hidden');
+            document.getElementById('sidebar-overlay').classList.toggle('hidden');
         }
 
-        // ⭐ Real-time Message Listener for Sidebar
+        // ⭐ Toast Notification Generator
+        function spawnToast(title, message, icon = 'fa-comment-dots', color = 'blue') {
+            const container = document.getElementById('toast-container');
+            
+            // Notification Beep Sound
+            try {
+                const audio = new Audio('data:audio/wav;base64,UklGRigAAABXQVZFZm10IBIAAAABAAEARKwAAIhYAQACABAAAABkYXRhAgAAAAEA'); 
+                // Note: Replace base64 with actual path if you have a sound file e.g., new Audio('/sounds/beep.mp3')
+                audio.volume = 0.5; audio.play().catch(()=>{});
+            } catch(e){}
+
+            // Toast Colors based on type (Messages vs Shift Alerts)
+            const colors = {
+                blue: 'bg-blue-600/20 border-blue-500/50 text-blue-400',
+                emerald: 'bg-emerald-600/20 border-emerald-500/50 text-emerald-400',
+                rose: 'bg-rose-600/20 border-rose-500/50 text-rose-400',
+                amber: 'bg-amber-600/20 border-amber-500/50 text-amber-400'
+            };
+
+            const toast = document.createElement('div');
+            toast.className = `glass-effect border-l-4 rounded-xl p-4 w-80 shadow-[0_10px_30px_rgba(0,0,0,0.5)] pointer-events-auto flex gap-4 items-start toast-enter ${colors[color]}`;
+            
+            toast.innerHTML = `
+                <div class="mt-0.5 rounded-full p-2 bg-black/30 shadow-inner">
+                    <i class="fas ${icon} text-lg"></i>
+                </div>
+                <div class="flex-1">
+                    <h4 class="text-xs font-black text-white uppercase tracking-widest mb-1">${title}</h4>
+                    <p class="text-[11px] text-slate-300 font-medium leading-relaxed">${message}</p>
+                </div>
+                <button onclick="this.parentElement.remove()" class="text-slate-500 hover:text-white transition-colors">
+                    <i class="fas fa-times"></i>
+                </button>
+            `;
+
+            container.appendChild(toast);
+
+            // Auto-remove after 6 seconds
+            setTimeout(() => {
+                toast.classList.replace('toast-enter', 'toast-leave');
+                setTimeout(() => toast.remove(), 400); // Wait for exit animation
+            }, 6000);
+        }
+
+        // ⭐ Global Unread Message & Alert Poller
+        let lastMessageCount = 0;
+
+        function checkSystemAlerts() {
+            if (!window.UserId) return;
+
+            fetch("{{ url('/chat/unread-count') }}")
+            .then(res => res.json())
+            .then(data => {
+                const badge = document.getElementById('admin-chat-badge');
+                const ping = document.getElementById('admin-chat-ping');
+                const mobileBadge = document.getElementById('mobile-chat-badge');
+                
+                if (data.count > 0) {
+                    // Update UI Badges
+                    if(badge) { badge.innerText = data.count; badge.classList.remove('hidden'); }
+                    if(ping) ping.classList.remove('hidden');
+                    if(mobileBadge) mobileBadge.classList.remove('hidden');
+
+                    // If New Message Arrived (Count Increased) -> Show Toast
+                    if (data.count > lastMessageCount) {
+                        spawnToast('Secure Link', `You have ${data.count} pending encrypted messages.`, 'fa-satellite-dish', 'blue');
+                    }
+                    lastMessageCount = data.count;
+                } else {
+                    // Clear UI
+                    if(badge) badge.classList.add('hidden');
+                    if(ping) ping.classList.add('hidden');
+                    if(mobileBadge) mobileBadge.classList.add('hidden');
+                    lastMessageCount = 0;
+                }
+            }).catch(e => {});
+        }
+
+        // Run checker immediately, then every 5 seconds
+        checkSystemAlerts();
+        setInterval(checkSystemAlerts, 5000);
+
+        // ⭐ WebSockets Listeners (Agar aap Laravel Echo/Pusher use kar rahe hain)
         document.addEventListener('DOMContentLoaded', function() {
             if (typeof Echo !== 'undefined' && window.UserId) {
+                // Listen for Messages
                 Echo.private(`chat.user.${window.UserId}`)
                     .listen('MessageSent', (data) => {
-                        const badge = document.getElementById('admin-chat-badge');
-                        // Update badge only if not currently chatting with sender
-                        if (badge && window.currentChatId !== data.message.sender_id) {
-                            badge.classList.remove('hidden');
-                            let currentCount = parseInt(badge.innerText) || 0;
-                            badge.innerText = currentCount + 1;
+                        if (window.currentChatId !== data.message.sender_id) {
+                            spawnToast('Incoming Transmission', `New message from ${data.message.sender.name}`, 'fa-envelope-open-text', 'blue');
+                            checkSystemAlerts(); // Update badge
                         }
+                    });
+
+                // Listen for Shift Alerts / General Notifications (Example event)
+                Echo.private(`system.alerts.${window.UserDeptId}`)
+                    .listen('ShiftEnded', (data) => {
+                        spawnToast('Shift Report', `${data.employee_name} has terminated their shift.`, 'fa-power-off', 'rose');
                     });
             }
         });
+
+        // Example: How to trigger a shift toast manually (for testing)
+        // setTimeout(() => spawnToast('Shift Terminated', 'Employee Ali has completed his 8-hour cycle.', 'fa-fingerprint', 'rose'), 3000);
     </script>
 </body>
 </html>

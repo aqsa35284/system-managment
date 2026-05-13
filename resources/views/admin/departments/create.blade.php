@@ -1,31 +1,46 @@
 @extends('layouts.admin')
 
 @section('content')
-<div class="p-8 bg-slate-50 min-h-screen flex items-center justify-center">
-    <div class="w-full max-w-xl bg-white rounded-[2.5rem] shadow-2xl border border-slate-100 overflow-hidden">
-        <div class="p-8 bg-indigo-600 text-white">
-            <h2 class="text-2xl font-black uppercase italic tracking-tighter">Initialize <span class="opacity-60">Department</span></h2>
-            <p class="text-[10px] font-bold uppercase tracking-widest mt-1">Setup New Organizational Node</p>
+<div class="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 py-12 px-4 sm:px-6 lg:px-8">
+    <div class="max-w-3xl mx-auto">
+        
+        <div class="text-center mb-10">
+            <h1 class="text-4xl font-bold text-slate-800 mb-2">Initialize Department</h1>
+            <p class="text-slate-500">Setup a new organizational node for your fleet</p>
         </div>
 
-        <form action="{{ route('admin.departments.store') }}" method="POST" class="p-8 space-y-6">
-            @csrf
-            <div class="space-y-2">
-                <label class="text-[10px] font-black uppercase text-slate-400 italic ml-2">Department Name</label>
-                <input type="text" name="name" class="w-full p-4 bg-slate-50 rounded-2xl font-bold border-2 border-transparent focus:border-indigo-500 outline-none transition-all" placeholder="e.g. Information Technology" required>
+        <div class="bg-white shadow-xl rounded-2xl overflow-hidden border border-slate-100">
+            <div class="bg-gradient-to-r from-blue-600 to-indigo-700 px-8 py-6">
+                <h2 class="text-xl font-bold text-white flex items-center">
+                    <i class="fas fa-sitemap mr-3"></i>
+                    Node Details
+                </h2>
             </div>
 
-            <div class="space-y-2">
-                <label class="text-[10px] font-black uppercase text-slate-400 italic ml-2">Node Code (Optional)</label>
-                <input type="text" name="department_code" class="w-full p-4 bg-slate-50 rounded-2xl font-bold border-2 border-transparent focus:border-indigo-500 outline-none transition-all" placeholder="e.g. IT-01">
-            </div>
+            {{-- Onsubmit loader added --}}
+            <form action="{{ route('admin.departments.store') }}" method="POST" class="p-8 space-y-6" onsubmit="this.querySelector('button[type=submit]').disabled = true; this.querySelector('button[type=submit]').innerHTML = '<i class=\'fas fa-spinner fa-spin mr-2\'></i> Establishing...';">
+                @csrf
+                
+                <div>
+                    <label class="block text-sm font-medium text-slate-700 mb-2">Department Name <span class="text-rose-500">*</span></label>
+                    <input type="text" name="name" value="{{ old('name') }}" class="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition text-slate-900 font-medium" placeholder="e.g. Information Technology" required>
+                    @error('name') <p class="text-rose-500 text-xs mt-1 font-semibold">{{ $message }}</p> @enderror
+                </div>
 
-            <div class="pt-4">
-                <button type="submit" class="w-full bg-indigo-600 text-white py-5 rounded-2xl font-black uppercase italic shadow-xl shadow-indigo-100 hover:bg-indigo-700 transition transform hover:-translate-y-1">
-                    Establish Node <i class="fas fa-arrow-right ml-2"></i>
-                </button>
-            </div>
-        </form>
+                <div>
+                    <label class="block text-sm font-medium text-slate-700 mb-2">Node Code ID <span class="text-xs text-slate-400 font-normal">(Optional)</span></label>
+                    <input type="text" name="department_code" value="{{ old('department_code') }}" class="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition text-slate-900 font-medium font-mono" placeholder="e.g. IT-01">
+                    @error('department_code') <p class="text-rose-500 text-xs mt-1 font-semibold">{{ $message }}</p> @enderror
+                </div>
+
+                <div class="flex justify-end border-t border-slate-100 pt-6 mt-8">
+                    <a href="{{ route('admin.departments.index') }}" class="px-6 py-3 text-slate-500 hover:text-slate-700 font-medium transition-colors mr-4">Cancel</a>
+                    <button type="submit" class="px-8 py-3 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-lg shadow-md hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-all transform hover:-translate-y-0.5 flex items-center">
+                        <i class="fas fa-check mr-2"></i> Create Node
+                    </button>
+                </div>
+            </form>
+        </div>
     </div>
 </div>
 @endsection

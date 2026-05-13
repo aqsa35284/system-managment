@@ -8,7 +8,7 @@ use Illuminate\Support\Facades\Auth;
 class AuthController extends Controller
 {
     public function showLoginForm() {
-        // ⭐ FIX: Agar user pehle se login hai, toh usay dashboard par bhej dein
+        // FIX: Agar user pehle se login hai, toh usay dashboard par bhej dein
         if (Auth::check()) {
             if (Auth::user()->role === 'admin') {
                 return redirect()->route('admin.dashboard');

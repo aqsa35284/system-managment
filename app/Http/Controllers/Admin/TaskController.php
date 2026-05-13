@@ -6,10 +6,38 @@ use App\Http\Controllers\Controller;
 use App\Models\Task;
 use App\Models\Project;
 use App\Models\User;
+use App\Models\TaskForward;
 use Illuminate\Http\Request;
 
 class TaskController extends Controller
 {
+    /**
+     *  Admin: Sab Forward History dekhe — Filters ke saath
+     */
+    public function forwardHistory(Request $request)
+    {
+        $query = TaskForward::with(['task', 'fromUser', 'toUser'])
+                            ->latest();
+
+        // Filter by employee
+        if ($request->filled('user_id')) {
+            $query->where(function($q) use ($request) {
+                $q->where('from_user_id', $request->user_id)
+                  ->orWhere('to_user_id', $request->user_id);
+            });
+        }
+
+        // Filter by date
+        if ($request->filled('date')) {
+            $query->whereDate('created_at', $request->date);
+        }
+
+        $forwards  = $query->paginate(20)->withQueryString();
+        $employees = User::where('role', 'employee')->get();
+
+        return view('admin.tasks.forward-history', compact('forwards', 'employees'));
+    }
+
     public function index()
     {
         $tasks = Task::with(['project', 'user'])->latest()->get();
@@ -35,10 +63,9 @@ class TaskController extends Controller
         ]);
 
         $data = $request->all();
-        
-        // Default status agar form se nahi aa raha
+
         if (!$request->has('status')) {
-            $data['status'] = 'to_do'; 
+            $data['status'] = 'to_do';
         }
 
         Task::create($data);
@@ -47,12 +74,21 @@ class TaskController extends Controller
                          ->with('success', 'Task Deployed Successfully!');
     }
 
-    // ⭐ Yeh function missing tha jiski wajah se error aa rahi thi
+    /**
+     *  show() method — Task detail page (admin ke liye)
+     * Resource route ke liye zaroori hai
+     */
+    public function show(Task $task)
+    {
+        $task->load(['project', 'user', 'adminFeedbacks', 'employeeUpdates.user', 'forwards.fromUser', 'forwards.toUser']);
+        return view('admin.tasks.show', compact('task'));
+    }
+
     public function edit(Task $task)
     {
         $projects = Project::all();
         $employees = User::where('role', 'employee')->get();
-        
+
         return view('admin.tasks.edit', compact('task', 'projects', 'employees'));
     }
 
@@ -70,12 +106,14 @@ class TaskController extends Controller
 
         $task->update($request->all());
 
-        return redirect()->route('admin.tasks.index')->with('success', 'Task Updated Successfully.');
+        return redirect()->route('admin.tasks.index')
+                         ->with('success', 'Task Updated Successfully.');
     }
 
     public function destroy(Task $task)
     {
         $task->delete();
-        return redirect()->route('admin.tasks.index')->with('success', 'Task Deleted Successfully.');
+        return redirect()->route('admin.tasks.index')
+                         ->with('success', 'Task Deleted Successfully.');
     }
 }

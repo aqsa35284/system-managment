@@ -1,222 +1,127 @@
 @extends('layouts.admin')
 
 @section('content')
-<div class="p-8 bg-gradient-to-br from-slate-50 to-blue-50 min-h-screen">
-    <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
-        <div>
-            <h2 class="text-3xl font-bold text-slate-800 mb-2">Task Board</h2>
-            <p class="text-slate-500">Manage and track all team tasks</p>
-        </div>
-        <a href="{{ route('admin.tasks.create') }}" class="bg-gradient-to-r from-blue-500 to-indigo-600 text-white px-6 py-3 rounded-xl font-medium shadow-lg hover:shadow-xl transition-all flex items-center gap-2">
-            <i class="fas fa-plus-circle"></i> Create Task
-        </a>
-    </div>
+<div class="min-h-screen bg-[#0B1120] p-6 md:p-10 text-slate-200 font-sans">
+    <div class="max-w-[1600px] mx-auto space-y-8">
 
-    <!-- Filters and Search -->
-    <div class="bg-white rounded-xl shadow-sm border border-slate-100 p-4 mb-6">
-        <div class="flex flex-col md:flex-row gap-4">
-            <div class="flex-1 relative">
-                <input type="text" id="search-input" placeholder="Search tasks..." class="w-full pl-10 pr-4 py-2 bg-slate-50 rounded-lg border border-slate-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 outline-none transition-all">
-                <i class="fas fa-search absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400"></i>
+        {{-- ═══════════════════════════════════════════════════════
+             HEADER SECTION
+        ═══════════════════════════════════════════════════════ --}}
+        <div class="flex flex-col md:flex-row justify-between items-start md:items-end pb-6 border-b border-slate-800 gap-4">
+            <div>
+                <p class="text-[10px] text-indigo-500 font-black tracking-[0.3em] uppercase mb-2 flex items-center gap-2">
+                    <i class="fas fa-layer-group animate-pulse"></i> Project & Task Control
+                </p>
+                <h1 class="text-4xl font-black text-white uppercase tracking-widest">Task Board</h1>
+                <p class="text-slate-400 text-[10px] mt-2 uppercase tracking-[0.2em] font-bold">Monitor Fleet Objectives & Deadlines</p>
             </div>
-            <div class="flex gap-2">
-                <select id="status-filter" class="px-4 py-2 bg-slate-50 rounded-lg border border-slate-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 outline-none transition-all">
-                    <option value="">All Status</option>
-                    <option value="to_do">To Do</option>
-                    <option value="in_progress">In Progress</option>
-                    <option value="review">Review</option>
-                    <option value="completed">Completed</option>
-                </select>
-                <select id="priority-filter" class="px-4 py-2 bg-slate-50 rounded-lg border border-slate-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 outline-none transition-all">
-                    <option value="">All Priority</option>
-                    <option value="low">Low</option>
-                    <option value="medium">Medium</option>
-                    <option value="high">High</option>
-                    <option value="urgent">Urgent</option>
-                </select>
-            </div>
-        </div>
-    </div>
-
-    <!-- Task Cards -->
-    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        @forelse($tasks as $task)
-        <div class="bg-white rounded-xl shadow-sm border border-slate-100 overflow-hidden hover:shadow-md transition-all task-card" data-status="{{ $task->status }}" data-priority="{{ $task->priority }}" data-title="{{ $task->title }}">
-            <div class="p-6">
-                <div class="flex justify-between items-start mb-4">
-                    <div class="flex-1">
-                        <h3 class="text-lg font-semibold text-slate-800 mb-1">{{ $task->title }}</h3>
-                        <div class="flex items-center gap-2">
-                            <div class="w-6 h-6 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white text-xs font-bold">
-                                {{ substr($task->user->name ?? 'U', 0, 1) }}
-                            </div>
-                            <span class="text-sm text-slate-500">{{ $task->user->name ?? 'Unassigned' }}</span>
-                        </div>
-                    </div>
-                    <div class="flex gap-1">
-                        <a href="{{ route('admin.tasks.edit', $task->id) }}" class="w-8 h-8 rounded-lg bg-slate-50 flex items-center justify-center text-slate-400 hover:text-blue-600 hover:bg-blue-50 transition-all">
-                            <i class="fas fa-edit text-sm"></i>
-                        </a>
-                        <form action="{{ route('admin.tasks.destroy', $task->id) }}" method="POST" onsubmit="return confirm('Are you sure you want to delete this task?')">
-                            @csrf @method('DELETE')
-                            <button type="submit" class="w-8 h-8 rounded-lg bg-slate-50 flex items-center justify-center text-slate-400 hover:text-red-600 hover:bg-red-50 transition-all">
-                                <i class="fas fa-trash text-sm"></i>
-                            </button>
-                        </form>
-                    </div>
-                </div>
-
-                <div class="mb-4">
-                    <span class="inline-block text-xs font-medium text-blue-600 bg-blue-50 px-3 py-1 rounded-full">
-                        {{ $task->project->name ?? 'Standalone' }}
-                    </span>
-                </div>
-
-                <div class="mb-4">
-                    <p class="text-sm text-slate-600 line-clamp-2">{{ $task->description ?? 'No description provided.' }}</p>
-                </div>
-
-                <div class="flex items-center justify-between mb-4">
-                    @php
-                        $pColors = [
-                            'low' => 'bg-slate-100 text-slate-600',
-                            'medium' => 'bg-blue-100 text-blue-600',
-                            'high' => 'bg-amber-100 text-amber-600',
-                            'urgent' => 'bg-red-100 text-red-600'
-                        ];
-                        $pIcons = [
-                            'low' => 'fa-arrow-down',
-                            'medium' => 'fa-minus',
-                            'high' => 'fa-arrow-up',
-                            'urgent' => 'fa-exclamation-triangle'
-                        ];
-                    @endphp
-                    <div class="flex items-center gap-2">
-                        <div class="w-8 h-8 rounded-lg {{ $pColors[$task->priority] ?? 'bg-slate-100 text-slate-600' }} flex items-center justify-center">
-                            <i class="fas {{ $pIcons[$task->priority] ?? 'fa-minus' }} text-xs"></i>
-                        </div>
-                        <span class="text-xs font-medium text-slate-500">{{ ucfirst($task->priority) }}</span>
-                    </div>
-
-                    @if($task->due_date)
-                    <div class="flex items-center gap-1 text-xs text-slate-500">
-                        <i class="far fa-calendar"></i>
-                        <span>{{ \Carbon\Carbon::parse($task->due_date)->format('M j') }}</span>
-                    </div>
-                    @endif
-                </div>
-
-                <div class="mb-4">
-                    <div class="flex justify-between items-center mb-1">
-                        <span class="text-xs font-medium text-slate-500">Progress</span>
-                        <span class="text-xs font-medium text-slate-700">
-                            @php
-                                $progress = [
-                                    'to_do' => 0,
-                                    'in_progress' => 50,
-                                    'review' => 75,
-                                    'completed' => 100
-                                ];
-                            @endphp
-                            {{ $progress[$task->status] ?? 0 }}%
-                        </span>
-                    </div>
-                    <div class="w-full bg-slate-100 rounded-full h-2">
-                        <div class="h-2 rounded-full bg-gradient-to-r from-blue-500 to-indigo-600" style="width: {{ $progress[$task->status] ?? 0 }}%"></div>
-                    </div>
-                </div>
-
-                @php
-                    $sColors = [
-                        'to_do' => 'bg-slate-100 text-slate-600',
-                        'in_progress' => 'bg-blue-100 text-blue-600',
-                        'review' => 'bg-purple-100 text-purple-600',
-                        'completed' => 'bg-green-100 text-green-600'
-                    ];
-                    $sIcons = [
-                        'to_do' => 'fa-clock',
-                        'in_progress' => 'fa-spinner',
-                        'review' => 'fa-eye',
-                        'completed' => 'fa-check-circle'
-                    ];
-                @endphp
-                <div class="flex items-center justify-between">
-                    <div class="flex items-center gap-2">
-                        <div class="w-8 h-8 rounded-lg {{ $sColors[$task->status] ?? 'bg-slate-100 text-slate-600' }} flex items-center justify-center">
-                            <i class="fas {{ $sIcons[$task->status] ?? 'fa-clock' }} text-xs"></i>
-                        </div>
-                        <span class="text-xs font-medium text-slate-700">{{ ucfirst(str_replace('_', ' ', $task->status)) }}</span>
-                    </div>
-                    <a href="#" class="text-xs font-medium text-blue-600 hover:text-blue-700">View Details</a>
-                </div>
-            </div>
-        </div>
-        @empty
-        <div class="col-span-full bg-white rounded-xl shadow-sm border border-slate-100 p-12 text-center">
-            <div class="w-20 h-20 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                <i class="fas fa-tasks text-2xl text-slate-400"></i>
-            </div>
-            <h3 class="text-lg font-semibold text-slate-700 mb-2">No tasks found</h3>
-            <p class="text-slate-500 mb-6">Get started by creating your first task</p>
-            <a href="{{ route('admin.tasks.create') }}" class="bg-blue-500 text-white px-6 py-2 rounded-lg font-medium hover:bg-blue-600 transition-all">
-                Create Task
+            <a href="{{ route('admin.tasks.create') }}" class="bg-indigo-600 hover:bg-indigo-500 text-white px-6 py-3.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all shadow-[0_0_15px_rgba(99,102,241,0.4)] flex items-center gap-2">
+                <i class="fas fa-plus"></i> Deploy New Task
             </a>
         </div>
-        @endforelse
+
+        {{-- ═══════════════════════════════════════════════════════
+             TASK GRID (KANBAN STYLE)
+        ═══════════════════════════════════════════════════════ --}}
+        <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+            @forelse($tasks as $task)
+            @php
+                // Deadline Logic (Check if time is over)
+                $isOverdue = false;
+                if ($task->due_date && $task->status !== 'completed' && $task->completion_percentage < 100) {
+                    $isOverdue = \Carbon\Carbon::parse($task->due_date)->isPast();
+                }
+
+                // Forward Logic (Check if employee forwarded the task)
+                $isForwarded = $task->original_user_id && $task->original_user_id !== $task->user_id;
+                
+                // Review Logic (Check if employee marked 100%)
+                $isReviewPending = ($task->status == 'review' || $task->completion_percentage == 100);
+            @endphp
+
+            <div class="bg-[#0F172A] border {{ $isOverdue ? 'border-rose-500/50 shadow-[0_0_20px_rgba(225,29,72,0.15)]' : 'border-slate-800' }} rounded-3xl p-6 relative overflow-hidden group hover:border-indigo-500/50 transition-all flex flex-col justify-between">
+                
+                <div class="absolute -right-6 -top-6 text-7xl opacity-[0.03] text-white group-hover:scale-110 transition-transform pointer-events-none">
+                    <i class="fas {{ $isReviewPending ? 'fa-check-double' : ($isOverdue ? 'fa-fire' : 'fa-tasks') }}"></i>
+                </div>
+
+                <div>
+                    {{-- TOP BADGES --}}
+                    <div class="flex justify-between items-start mb-5 relative z-10">
+                        <div class="flex flex-wrap gap-2">
+                            @if($task->status == 'completed')
+                                <span class="bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-2.5 py-1 rounded text-[8px] font-black uppercase tracking-widest shadow-sm">COMPLETED</span>
+                            @elseif($isReviewPending)
+                                <span class="bg-amber-500/10 text-amber-400 border border-amber-500/20 px-2.5 py-1 rounded text-[8px] font-black uppercase tracking-widest animate-pulse shadow-sm">REVIEW PENDING</span>
+                            @else
+                                <span class="bg-blue-500/10 text-blue-400 border border-blue-500/20 px-2.5 py-1 rounded text-[8px] font-black uppercase tracking-widest shadow-sm">{{ str_replace('_', ' ', $task->status) }}</span>
+                            @endif
+
+                            @if($isOverdue)
+                                <span class="bg-rose-500 text-white px-2.5 py-1 rounded text-[8px] font-black uppercase tracking-widest shadow-md animate-bounce"><i class="fas fa-exclamation-triangle mr-1"></i> OVERDUE</span>
+                            @endif
+                        </div>
+                        <div class="flex gap-2">
+                            <a href="{{ route('admin.tasks.edit', $task->id) }}" class="text-slate-500 hover:text-indigo-400 transition-colors"><i class="fas fa-edit text-xs"></i></a>
+                        </div>
+                    </div>
+
+                    {{-- TASK INFO --}}
+                    <p class="text-[9px] font-black text-indigo-400 uppercase tracking-widest mb-1 relative z-10">{{ $task->project->name ?? 'Standalone Task' }}</p>
+                    <h3 class="text-lg font-bold text-white mb-3 group-hover:text-indigo-300 transition-colors relative z-10 line-clamp-2" title="{{ $task->title }}">{{ $task->title }}</h3>
+
+                    {{-- PROGRESS BAR --}}
+                    <div class="mb-6 relative z-10">
+                        <div class="flex justify-between text-[9px] font-black uppercase tracking-widest mb-2">
+                            <span class="text-slate-400">Completion</span>
+                            <span class="{{ $isReviewPending ? 'text-emerald-400' : 'text-blue-400' }}">{{ $task->completion_percentage ?? 0 }}%</span>
+                        </div>
+                        <div class="w-full bg-[#1E293B] h-1.5 rounded-full overflow-hidden border border-slate-700/50">
+                            <div class="h-full {{ $isReviewPending ? 'bg-emerald-500' : 'bg-blue-500' }} transition-all duration-1000" style="width: {{ $task->completion_percentage ?? 0 }}%"></div>
+                        </div>
+                    </div>
+                </div>
+
+                {{-- ASSIGNEE & DEADLINE --}}
+                <div class="flex items-center justify-between border-t border-slate-800 pt-4 mt-auto relative z-10">
+                    <div class="flex items-center gap-3">
+                        <div class="w-9 h-9 rounded-xl bg-[#1E293B] border border-slate-700 overflow-hidden flex items-center justify-center font-black text-blue-300 text-xs shadow-sm">
+                            @if($task->user && $task->user->profile_image)
+                                <img src="{{ asset('storage/'.$task->user->profile_image) }}" class="w-full h-full object-cover">
+                            @else
+                                {{ substr($task->user->name ?? 'U', 0, 1) }}
+                            @endif
+                        </div>
+                        <div>
+                            <p class="text-[9px] font-black text-white uppercase tracking-wider">{{ $task->user->name ?? 'Unassigned' }}</p>
+                            @if($isForwarded)
+                                <p class="text-[7px] font-bold text-amber-500 uppercase tracking-widest flex items-center gap-1 mt-0.5"><i class="fas fa-exchange-alt"></i> Forwarded</p>
+                            @else
+                                <p class="text-[7px] font-bold text-slate-500 uppercase tracking-widest mt-0.5">Active Owner</p>
+                            @endif
+                        </div>
+                    </div>
+                    
+                    <div class="text-right">
+                        <p class="text-[7px] font-bold text-slate-500 uppercase tracking-widest mb-0.5">Deadline</p>
+                        <p class="text-[9px] font-black {{ $isOverdue ? 'text-rose-500' : 'text-slate-300' }} uppercase tracking-widest">
+                            @if($task->due_date)
+                                {{ \Carbon\Carbon::parse($task->due_date)->format('d M, Y') }}
+                            @else
+                                <span class="text-slate-600">No Limit</span>
+                            @endif
+                        </p>
+                    </div>
+                </div>
+
+            </div>
+            @empty
+            <div class="col-span-full py-24 text-center bg-[#0F172A] border border-slate-800 rounded-[2rem] shadow-xl">
+                <i class="fas fa-satellite-dish text-5xl text-slate-700 mb-4 block"></i>
+                <p class="text-xs font-black uppercase tracking-[0.3em] text-slate-500">No Tasks in Queue</p>
+            </div>
+            @endforelse
+        </div>
     </div>
 </div>
-
-<script>
-    // Search functionality
-    document.getElementById('search-input').addEventListener('input', function() {
-        const searchTerm = this.value.toLowerCase();
-        const cards = document.querySelectorAll('.task-card');
-        
-        cards.forEach(card => {
-            const title = card.getAttribute('data-title').toLowerCase();
-            if (title.includes(searchTerm)) {
-                card.style.display = 'block';
-            } else {
-                card.style.display = 'none';
-            }
-        });
-    });
-
-    // Status filter
-    document.getElementById('status-filter').addEventListener('change', function() {
-        const status = this.value;
-        const cards = document.querySelectorAll('.task-card');
-        
-        cards.forEach(card => {
-            if (!status || card.getAttribute('data-status') === status) {
-                card.style.display = 'block';
-            } else {
-                card.style.display = 'none';
-            }
-        });
-    });
-
-    // Priority filter
-    document.getElementById('priority-filter').addEventListener('change', function() {
-        const priority = this.value;
-        const cards = document.querySelectorAll('.task-card');
-        
-        cards.forEach(card => {
-            if (!priority || card.getAttribute('data-priority') === priority) {
-                card.style.display = 'block';
-            } else {
-                card.style.display = 'none';
-            }
-        });
-    });
-</script>
-
-<style>
-    .line-clamp-2 {
-        display: -webkit-box;
-        -webkit-line-clamp: 2;
-        -webkit-box-orient: vertical;
-        overflow: hidden;
-    }
-</style>
 @endsection

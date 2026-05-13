@@ -1,255 +1,418 @@
 @extends('layouts.admin')
 
 @section('content')
-<meta name="csrf-token" content="{{ csrf_token() }}">
 
-{{-- ✅ IMAGE PREVIEW MODAL --}}
-<div id="imageModal" class="fixed inset-0 z-[10000] hidden bg-slate-950/95 backdrop-blur-xl flex items-center justify-center p-4 cursor-zoom-out" onclick="this.classList.add('hidden')">
-    <div class="relative max-w-5xl w-full">
-        <img id="modalImg" src="" class="w-full rounded-[2rem] border border-indigo-500/30 shadow-2xl">
-    </div>
-</div>
+{{-- ⭐ DATA PROCESSING FOR GRAPHS & LIVE ALERTS (For 100+ Employees) --}}
+@php
+    // Categorize data for 100+ employees
+    $aiUsersList = [];
+    $socialUsersList = [];
+    $deptChartLabels = [];
+    $deptActiveData = [];
+    $deptIdleData = [];
+    
+    $tempDepts = [];
 
-<div class="min-h-screen bg-[#020617] relative overflow-hidden">
-    {{-- Animated Background Decor --}}
-    <div class="fixed inset-0 overflow-hidden pointer-events-none">
-        <div class="absolute top-20 right-20 w-72 h-72 bg-purple-500 rounded-full mix-blend-multiply filter blur-xl opacity-10 animate-pulse"></div>
-        <div class="absolute bottom-20 left-20 w-96 h-96 bg-indigo-500 rounded-full mix-blend-multiply filter blur-xl opacity-10 animate-pulse"></div>
-    </div>
-
-    <div class="relative z-10 p-6 md:p-8">
+    foreach($employeeStatus ?? [] as $es) {
+        $emp = $es['employee'];
+        $deptName = $emp->department->name ?? 'General';
         
-        {{-- 📊 1. TOP STATS BAR --}}
-        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 mb-8">
-            <div class="glass-effect p-6 rounded-2xl border border-white/10 flex items-center gap-4 hover:bg-white/5 transition-all">
-                <div class="bg-blue-500/20 w-12 h-12 rounded-xl flex items-center justify-center text-blue-400 shadow-lg"><i class="fas fa-users"></i></div>
-                <div>
-                    <p class="text-[10px] font-bold text-white/40 uppercase tracking-widest">Total Fleet</p>
-                    <h3 class="text-xl font-black text-white tracking-tight">{{ $totalEmployees }}</h3>
-                </div>
-            </div>
-            
-            <div class="glass-effect p-6 rounded-2xl border border-emerald-500/20 flex items-center gap-4 bg-emerald-500/5">
-                <div class="bg-emerald-500 w-12 h-12 rounded-xl flex items-center justify-center text-white shadow-lg animate-pulse"><i class="fas fa-signal"></i></div>
-                <div>
-                    <p class="text-[10px] font-bold text-emerald-400 uppercase tracking-widest">Active Now</p>
-                    <h3 class="text-xl font-black text-white tracking-tight">{{ $employeePerformance->count() }}</h3>
-                </div>
-            </div>
+        // Initialize Department if not exists
+        if(!isset($tempDepts[$deptName])) {
+            $tempDepts[$deptName] = ['active' => 0, 'idle' => 0];
+        }
 
-            <div class="glass-effect p-6 rounded-2xl border border-white/10 flex items-center gap-4">
-                <div class="bg-rose-500/20 w-12 h-12 rounded-xl flex items-center justify-center text-rose-400"><i class="fas fa-tasks"></i></div>
-                <div>
-                    <p class="text-[10px] font-bold text-white/40 uppercase tracking-widest">Total Tasks</p>
-                    <h3 class="text-xl font-black text-white tracking-tight">{{ $totalTasks }}</h3>
-                </div>
-            </div>
+        // Count Active vs Idle
+        if($es['is_online']) $tempDepts[$deptName]['active']++;
+        else $tempDepts[$deptName]['idle']++;
 
-            <div class="glass-effect p-6 rounded-2xl border border-white/10 flex items-center gap-4">
-                <div class="bg-amber-500/20 w-12 h-12 rounded-xl flex items-center justify-center text-amber-400"><i class="fas fa-brain"></i></div>
-                <div>
-                    <p class="text-[10px] font-bold text-white/40 uppercase tracking-widest">AI Penetration</p>
-                    <h3 class="text-xl font-black text-white tracking-tight">{{ round($globalAiStats['ai_tool'] ?? 0, 1) }}%</h3>
-                </div>
-            </div>
-
-            <div class="glass-effect p-6 rounded-2xl border border-white/10 flex items-center gap-4">
-                <div class="bg-indigo-500/20 w-12 h-12 rounded-xl flex items-center justify-center text-indigo-400"><i class="fas fa-microchip"></i></div>
-                <div>
-                    <p class="text-[10px] font-bold text-white/40 uppercase tracking-widest">Nodes Active</p>
-                    <h3 class="text-xl font-black text-white tracking-tight">{{ $totalDepartments }}</h3>
-                </div>
-            </div>
-        </div>
-
-        {{-- ⭐ 2. LIVE ACTIVE PERSONNEL (Fix for missing names) --}}
-        <div class="glass-effect rounded-[2rem] p-6 mb-8 border border-emerald-500/20 bg-emerald-500/5">
-            <h4 class="text-xs font-black text-white uppercase italic tracking-widest mb-6 flex items-center gap-3">
-                <span class="relative flex h-3 w-3">
-                    <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                    <span class="relative inline-flex rounded-full h-3 w-3 bg-emerald-500"></span>
-                </span>
-                Authenticated Fleet Operators
-            </h4>
-            <div class="flex flex-wrap gap-4">
-                @forelse($employeePerformance as $perf)
-                    <div class="bg-white/5 border border-white/10 pl-2 pr-5 py-2 rounded-2xl flex items-center gap-3 hover:bg-indigo-600 transition-all cursor-default group">
-                        <img src="{{ $perf->user->profile_image ? asset('storage/' . $perf->user->profile_image) : 'https://ui-avatars.com/api/?name='.urlencode($perf->name).'&background=6366f1&color=fff' }}" class="w-10 h-10 rounded-xl border border-white/20 object-cover shadow-lg">
-                        <div>
-                            <p class="text-[11px] font-black text-white uppercase italic tracking-tighter">{{ $perf->name }}</p>
-                            <div class="flex items-center gap-1.5">
-                                <span class="w-1.5 h-1.5 rounded-full {{ $perf->is_online ? 'bg-emerald-400' : 'bg-rose-500' }}"></span>
-                                <p class="text-[8px] text-white/60 font-bold uppercase tracking-tighter group-hover:text-white">{{ $perf->watch_time }} Active</p>
-                            </div>
-                        </div>
-                    </div>
-                @empty
-                    <p class="text-[10px] text-white/20 italic uppercase tracking-widest py-2">Waiting for authenticated signals...</p>
-                @endforelse
-            </div>
-        </div>
-
-        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            {{-- 🛰️ LEFT: Telemetry Stream --}}
-            <div class="lg:col-span-2 space-y-6">
-                <div class="glass-effect rounded-[2.5rem] p-8 border border-white/10 shadow-2xl">
-                    <h4 class="font-black text-white uppercase italic tracking-tighter text-xl mb-8 flex items-center gap-3">
-                        <i class="fas fa-broadcast-tower text-emerald-400 animate-pulse"></i> Telemetry Pulse
-                    </h4>
-
-                    <div class="space-y-4">
-                        @forelse($employeePerformance as $perf)
-                        <div class="flex flex-col md:flex-row items-center justify-between p-6 rounded-3xl border border-white/5 bg-white/5 hover:bg-white/10 transition-all group">
-                            <div class="flex items-center gap-5 w-full md:w-1/4">
-                                <div class="relative">
-                                    <img src="{{ $perf->user->profile_image ? asset('storage/' . $perf->user->profile_image) : 'https://ui-avatars.com/api/?name='.urlencode($perf->name).'&background=6366f1&color=fff' }}" class="w-14 h-14 rounded-2xl border border-white/10 shadow-lg object-cover">
-                                    <div class="absolute -top-1 -right-1 w-4 h-4 {{ $perf->is_online ? 'bg-emerald-500' : 'bg-rose-500' }} rounded-full border-2 border-[#020617] animate-pulse"></div>
-                                </div>
-                                <div>
-                                    <p class="text-xs font-black text-white uppercase italic tracking-tighter">{{ $perf->name }}</p>
-                                    <span class="text-[8px] bg-indigo-500/20 text-indigo-400 px-2 py-0.5 rounded font-black uppercase">{{ $perf->watch_time }}</span>
-                                </div>
-                            </div>
-
-                            <div class="w-full md:w-1/2 flex items-center gap-4 my-4 md:my-0">
-                                <div class="p-1 bg-black/40 rounded-xl border border-white/10 overflow-hidden shadow-inner group-hover:border-indigo-500/50 transition-all">
-                                    @if($perf->last_screenshot)
-                                        <img src="{{ asset('storage/' . $perf->last_screenshot) }}" class="w-28 h-16 object-cover rounded-lg cursor-zoom-in hover:scale-105 transition-transform" onclick="openFullSC(this.src)">
-                                    @else
-                                        <div class="w-28 h-16 flex items-center justify-center text-[8px] text-white/20 italic bg-slate-900/50 rounded-lg uppercase tracking-tighter">Scanning Node...</div>
-                                    @endif
-                                </div>
-                                <div class="flex flex-col overflow-hidden">
-                                    <span class="text-[8px] text-white/40 uppercase font-black tracking-tighter italic">Last Active Process</span>
-                                    <p class="text-[10px] text-white font-bold truncate max-w-[180px] italic">{{ $perf->last_window ?? 'System Standby' }}</p>
-                                </div>
-                            </div>
-
-                            <div class="flex gap-2">
-                                <a href="{{ route('admin.employees.pulses', $perf->user_id) }}" class="p-3 bg-indigo-500/10 text-indigo-400 rounded-xl hover:bg-indigo-600 hover:text-white transition-all border border-indigo-500/20">
-                                    <i class="fas fa-history text-xs"></i>
-                                </a>
-                                <button onclick="triggerManualCapture({{ $perf->user_id }})" class="p-3 bg-emerald-500/10 text-emerald-400 rounded-xl hover:bg-emerald-600 hover:text-white transition-all border border-emerald-500/20 shadow-lg">
-                                    <i class="fas fa-camera text-xs"></i>
-                                </button>
-                            </div>
-                        </div>
-                        @empty
-                        <div class="text-center py-20 bg-white/2 rounded-[2rem] border border-dashed border-white/10">
-                            <i class="fas fa-satellite-dish text-4xl text-white/10 mb-4 animate-bounce"></i>
-                            <p class="text-[10px] text-white/20 italic uppercase tracking-[0.5em]">No nodes detected in current cycle</p>
-                        </div>
-                        @endforelse
-                    </div>
-                </div>
-
-                {{-- 🔥 MISSION HEATMAP --}}
-                <div class="glass-effect rounded-[2.5rem] p-8 border border-white/10">
-                    <h4 class="font-black text-white uppercase tracking-tighter italic text-lg mb-6 flex items-center gap-3">
-                        <i class="fas fa-fire-alt text-orange-500"></i> Objective Completion Heatmap
-                    </h4>
-                    <div id="taskHeatmap" class="w-full"></div>
-                </div>
-            </div>
-
-            {{-- 🕹️ RIGHT: Alerts & AI --}}
-            <div class="space-y-6">
-                <div class="glass-effect rounded-[2rem] p-8 border border-rose-500/20 shadow-2xl bg-rose-500/5">
-                    <h4 class="font-black text-white uppercase tracking-tighter mb-6 italic flex items-center gap-2 text-xl">
-                        <i class="fas fa-exclamation-triangle text-rose-500 animate-pulse"></i> Compliance Alerts
-                    </h4>
-                    <div class="space-y-4 max-h-[300px] overflow-y-auto pr-2">
-                        @forelse($securityAlerts ?? [] as $alert)
-                        <div class="p-4 rounded-2xl bg-rose-500/10 border border-rose-500/20 flex items-center justify-between hover:bg-rose-500/20 transition-all">
-                            <div class="overflow-hidden">
-                                <p class="text-[9px] font-black text-rose-400 uppercase">{{ $alert->operator }}</p>
-                                <p class="text-[10px] text-white font-bold truncate italic tracking-tight">{{ $alert->violation }}</p>
-                            </div>
-                            <span class="text-[8px] bg-rose-600 text-white px-2 py-1 rounded font-black shadow-lg">{{ $alert->time }}</span>
-                        </div>
-                        @empty
-                        <div class="text-center py-10">
-                            <i class="fas fa-user-shield text-emerald-500/20 text-4xl mb-3"></i>
-                            <p class="text-[9px] text-emerald-400 font-black italic uppercase tracking-widest">All Nodes Compliant</p>
-                        </div>
-                        @endforelse
-                    </div>
-                </div>
-
-                {{-- AI LOAD ANALYSIS --}}
-                <div class="glass-effect rounded-[2rem] p-8 border border-white/10 shadow-2xl bg-indigo-500/5">
-                    <h4 class="font-black text-white uppercase tracking-tighter mb-6 italic flex items-center gap-2 text-xl">
-                        <i class="fas fa-brain text-purple-500"></i> AI Penetration Load
-                    </h4>
-                    <div class="space-y-6">
-                        @forelse($aiToolBreakdown as $ai)
-                        <div>
-                            <div class="flex justify-between text-[10px] uppercase font-black italic mb-2">
-                                <span class="text-slate-300">{{ $ai->ai_tool }}</span>
-                                <span class="text-indigo-400">{{ round($ai->total_time / 60) }} Mins</span>
-                            </div>
-                            <div class="w-full bg-slate-900 rounded-full h-2 border border-white/5 shadow-inner">
-                                @php $percent = min(($ai->total_time / 3600) * 100, 100); @endphp
-                                <div class="bg-gradient-to-r from-indigo-600 via-purple-600 to-rose-600 h-full rounded-full transition-all duration-1000 shadow-[0_0_10px_rgba(99,102,241,0.5)]" style="width: {{ $percent }}%"></div>
-                            </div>
-                        </div>
-                        @empty
-                        <p class="text-center text-white/20 italic text-[9px] uppercase tracking-widest">AI usage scanning...</p>
-                        @endforelse
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-</div>
-
-<script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
-<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
-<script>
-    // 📊 Mission Heatmap Logic (Synced with real data)
-    document.addEventListener('DOMContentLoaded', function () {
-        var options = {
-            series: [{ name: 'Objectives Completed', data: {!! json_encode($heatmapCounts) !!} }],
-            chart: { height: 280, type: 'bar', toolbar: { show: false }, background: 'transparent' },
-            plotOptions: { bar: { borderRadius: 8, columnWidth: '40%', distributed: true, dataLabels: { position: 'top' } } },
-            colors: ['#10b981', '#6366f1', '#f59e0b', '#f43f5e', '#8b5cf6', '#3b82f6', '#ec4899'],
-            xaxis: { categories: {!! json_encode($heatmapDays) !!}, labels: { style: { colors: '#94a3b8', fontSize: '10px', fontWeight: 900 } } },
-            grid: { borderColor: 'rgba(255,255,255,0.05)', strokeDashArray: 4 },
-            tooltip: { theme: 'dark', y: { formatter: (v) => v + " Tasks" } }
-        };
-        new ApexCharts(document.querySelector("#taskHeatmap"), options).render();
-    });
-
-    function openFullSC(src) { 
-        document.getElementById('modalImg').src = src; 
-        document.getElementById('imageModal').classList.remove('hidden'); 
+        // Catch Live AI & Social Users
+        if(!empty($es['social_alert'])) {
+            $socialUsersList[] = [
+                'name' => $emp->name, 
+                'dept' => $deptName, 
+                'tools' => implode(', ', $es['ai_tools'] ?? ['SOCIAL MEDIA'])
+            ];
+        } elseif (!empty($es['ai_tools']) && count($es['ai_tools']) > 0) {
+            $aiUsersList[] = [
+                'name' => $emp->name, 
+                'dept' => $deptName, 
+                'tools' => implode(', ', $es['ai_tools'])
+            ];
+        }
     }
 
-    function triggerManualCapture(userId) {
-        const token = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
+    // Format Data for Chart.js
+    foreach($tempDepts as $dName => $counts) {
+        $deptChartLabels[] = $dName;
+        $deptActiveData[] = $counts['active'];
+        $deptIdleData[] = $counts['idle'];
+    }
+@endphp
+
+<div class="p-4 md:p-8 bg-[#0B1120] min-h-screen font-sans text-slate-200">
+    <div class="max-w-[1800px] mx-auto space-y-6">
+
+        {{-- ══════════════════════════════════════════════════════
+             1. COMMAND HEADER & GLOBAL FILTERS
+        ══════════════════════════════════════════════════════ --}}
+        <div class="flex flex-col xl:flex-row justify-between items-start xl:items-end pb-4 border-b border-slate-800 gap-6">
+            <div>
+                <p class="text-[10px] text-blue-500 font-black tracking-[0.3em] uppercase mb-1 flex items-center gap-2">
+                    <i class="fas fa-globe animate-pulse"></i> Global Fleet Overview
+                </p>
+                <h1 class="text-3xl md:text-4xl font-black text-white uppercase tracking-widest">Command Center</h1>
+            </div>
+            
+            <div class="flex gap-2 bg-[#1E293B]/80 backdrop-blur p-1.5 rounded-2xl border border-slate-700 shadow-xl overflow-x-auto w-full xl:w-auto">
+                @foreach(['today' => 'Today', 'weekly' => 'Weekly', 'monthly' => 'Monthly'] as $pk => $pl)
+                <a href="{{ route('admin.dashboard', ['period' => $pk]) }}"
+                   class="px-8 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap
+                   {{ (request('period', 'today') == $pk) ? 'bg-blue-600 text-white shadow-[0_0_15px_rgba(37,99,235,0.4)]' : 'text-slate-400 hover:text-white hover:bg-slate-700/50' }}">
+                    {{ $pl }}
+                </a>
+                @endforeach
+            </div>
+        </div>
+
+        {{-- ══════════════════════════════════════════════════════
+             2. TOP LEVEL METRICS (100+ Scale)
+        ══════════════════════════════════════════════════════ --}}
+        <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
+            <div class="bg-[#0F172A] border border-blue-900/30 rounded-2xl p-5 shadow-lg relative overflow-hidden group">
+                <div class="absolute -right-4 -bottom-4 text-7xl opacity-5 text-blue-500 group-hover:scale-110 transition-transform"><i class="fas fa-users"></i></div>
+                <p class="text-[9px] text-blue-400 font-black uppercase tracking-widest mb-1">Total Workforce</p>
+                <h3 class="text-3xl font-black text-white">{{ $totalEmployees ?? 0 }}</h3>
+            </div>
+            <div class="bg-[#0F172A] border border-emerald-900/30 rounded-2xl p-5 shadow-lg relative overflow-hidden group">
+                <div class="absolute -right-4 -bottom-4 text-7xl opacity-5 text-emerald-500 group-hover:scale-110 transition-transform"><i class="fas fa-network-wired"></i></div>
+                <p class="text-[9px] text-emerald-400 font-black uppercase tracking-widest mb-1">Active Nodes</p>
+                <h3 class="text-3xl font-black text-white">{{ $onlineCount ?? 0 }}</h3>
+            </div>
+            <div class="bg-[#0F172A] border border-amber-900/30 rounded-2xl p-5 shadow-lg relative overflow-hidden group">
+                <div class="absolute -right-4 -bottom-4 text-7xl opacity-5 text-amber-500 group-hover:scale-110 transition-transform"><i class="fas fa-exclamation-triangle"></i></div>
+                <p class="text-[9px] text-amber-400 font-black uppercase tracking-widest mb-1">Distraction Alerts</p>
+                <h3 class="text-3xl font-black {{ count($socialUsersList) > 0 ? 'text-amber-400 animate-pulse' : 'text-white' }}">{{ count($socialUsersList) }}</h3>
+            </div>
+            <div class="bg-[#0F172A] border border-indigo-900/30 rounded-2xl p-5 shadow-lg relative overflow-hidden group">
+                <div class="absolute -right-4 -bottom-4 text-7xl opacity-5 text-indigo-500 group-hover:scale-110 transition-transform"><i class="fas fa-robot"></i></div>
+                <p class="text-[9px] text-indigo-400 font-black uppercase tracking-widest mb-1">AI Co-Pilots Active</p>
+                <h3 class="text-3xl font-black text-white">{{ count($aiUsersList) }}</h3>
+            </div>
+        </div>
+
+        {{-- ══════════════════════════════════════════════════════
+             3. VISUAL GRAPHS & LIVE INTERCEPTS (NEW)
+        ══════════════════════════════════════════════════════ --}}
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            
+            {{-- Department Active Status Graph --}}
+            <div class="lg:col-span-2 bg-[#0F172A] border border-slate-800 rounded-3xl p-6 shadow-xl relative">
+                <h3 class="text-[10px] font-black text-slate-300 uppercase tracking-[0.2em] mb-4 flex items-center gap-2">
+                    <i class="fas fa-chart-bar text-blue-500"></i> Department Live Status
+                </h3>
+                <div class="h-64 w-full">
+                    <canvas id="deptChart"></canvas>
+                </div>
+            </div>
+
+            {{-- Live AI & Social Feed --}}
+            <div class="bg-[#0F172A] border border-slate-800 rounded-3xl p-6 shadow-xl flex flex-col h-full max-h-[340px]">
+                <h3 class="text-[10px] font-black text-slate-300 uppercase tracking-[0.2em] mb-4 flex items-center gap-2">
+                    <i class="fas fa-radar text-rose-500 animate-pulse"></i> Live Detections
+                </h3>
+                <div class="flex-1 overflow-y-auto pr-2 space-y-3 custom-scrollbar">
+                    
+                    {{-- Social Media Violations First --}}
+                    @forelse($socialUsersList as $alert)
+                    <div class="bg-rose-500/10 border border-rose-500/20 p-3 rounded-xl flex justify-between items-center group">
+                        <div>
+                            <p class="text-[10px] font-black text-rose-400 uppercase tracking-widest">{{ $alert['name'] }}</p>
+                            <p class="text-[8px] font-bold text-slate-400 uppercase">{{ $alert['dept'] }}</p>
+                        </div>
+                        <span class="bg-rose-500 text-white text-[8px] font-black uppercase px-2 py-1 rounded shadow-md group-hover:scale-105 transition-transform">
+                            {{ $alert['tools'] }}
+                        </span>
+                    </div>
+                    @empty
+                    @endforelse
+
+                    {{-- AI Tool Usage Second --}}
+                    @forelse($aiUsersList as $ai)
+                    <div class="bg-indigo-500/5 border border-indigo-500/20 p-3 rounded-xl flex justify-between items-center group">
+                        <div>
+                            <p class="text-[10px] font-black text-indigo-300 uppercase tracking-widest">{{ $ai['name'] }}</p>
+                            <p class="text-[8px] font-bold text-slate-500 uppercase">{{ $ai['dept'] }}</p>
+                        </div>
+                        <span class="bg-indigo-600/30 text-indigo-300 border border-indigo-500/50 text-[8px] font-black uppercase px-2 py-1 rounded shadow-md group-hover:scale-105 transition-transform">
+                            {{ $ai['tools'] }}
+                        </span>
+                    </div>
+                    @empty
+                    @endforelse
+
+                    @if(count($socialUsersList) == 0 && count($aiUsersList) == 0)
+                    <div class="h-full flex flex-col items-center justify-center text-center opacity-50 pt-10">
+                        <i class="fas fa-shield-check text-4xl text-emerald-500 mb-3"></i>
+                        <p class="text-[9px] font-black text-slate-400 uppercase tracking-[0.2em]">Clear Radar</p>
+                    </div>
+                    @endif
+                </div>
+            </div>
+        </div>
+
+        {{-- ══════════════════════════════════════════════════════
+             4. HIGH-DENSITY OPERATOR STATUS MATRIX
+        ══════════════════════════════════════════════════════ --}}
+        <div class="bg-[#0F172A] rounded-3xl shadow-xl border border-slate-800 overflow-hidden flex flex-col h-full max-h-[800px]">
+            
+            {{-- Matrix Header & Search --}}
+            <div class="px-6 py-5 border-b border-slate-800 bg-[#1E293B]/30 flex flex-col md:flex-row items-center justify-between gap-4">
+                <div>
+                    <h2 class="text-sm font-black text-white uppercase tracking-widest flex items-center gap-2">
+                        <i class="fas fa-users-cog text-blue-500"></i> Operator Status Matrix
+                    </h2>
+                    <p class="text-[9px] text-slate-400 font-bold uppercase tracking-widest mt-1">Real-time telemetry for {{ $totalEmployees ?? 0 }} Nodes</p>
+                </div>
+                
+                {{-- Smart Search for 100+ users --}}
+                <div class="relative w-full md:w-80">
+                    <i class="fas fa-search absolute left-4 top-1/2 -translate-y-1/2 text-blue-500 text-xs"></i>
+                    <input type="text" id="matrixSearch" placeholder="Search Name, Dept or Tool..."
+                           class="w-full bg-[#1E293B] border border-blue-900/50 rounded-xl pl-10 pr-4 py-2.5 text-[10px] font-black text-white uppercase tracking-widest outline-none focus:border-blue-500 transition-all placeholder-slate-500">
+                </div>
+            </div>
+
+            {{-- Scrollable Matrix Body --}}
+            <div class="overflow-x-auto overflow-y-auto custom-scrollbar flex-1">
+                <table class="w-full min-w-[1200px] text-left border-collapse">
+                    <thead class="bg-[#1E293B]/80 backdrop-blur sticky top-0 z-20">
+                        <tr class="border-b border-slate-800">
+                            <th class="px-6 py-4 text-[9px] font-black text-slate-400 uppercase tracking-[0.2em]">Operator Identity</th>
+                            <th class="px-4 py-4 text-[9px] font-black text-slate-400 uppercase tracking-[0.2em] text-center">Status</th>
+                            <th class="px-4 py-4 text-[9px] font-black text-slate-400 uppercase tracking-[0.2em] text-center">Active Tools</th>
+                            <th class="px-4 py-4 text-[9px] font-black text-slate-400 uppercase tracking-[0.2em] text-center">Work Time</th>
+                            <th class="px-4 py-4 text-[9px] font-black text-slate-400 uppercase tracking-[0.2em] text-center">Live Preview</th>
+                            <th class="px-6 py-4 text-[9px] font-black text-slate-400 uppercase tracking-[0.2em] text-right">Command</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-slate-800/50" id="matrixBody">
+                        @foreach($employeeStatus ?? [] as $es)
+                        @php
+                            $emp = $es['employee'];
+                            $dept = $emp->department->name ?? 'General';
+                            $wh  = floor($es['work_seconds'] / 3600);
+                            $wm  = floor(($es['work_seconds'] % 3600) / 60);
+                            $toolsStr = implode(' ', $es['ai_tools'] ?? []);
+                            $searchString = strtolower($emp->name . ' ' . $dept . ' ' . $toolsStr);
+                        @endphp
+                        <tr class="hover:bg-[#1E293B]/40 transition-colors group matrix-row" data-search="{{ $searchString }}">
+                            
+                            {{-- Identity & Department --}}
+                            <td class="px-6 py-3">
+                                <div class="flex items-center gap-3">
+                                    <div class="relative">
+                                        <div class="w-9 h-9 bg-blue-900/50 rounded-xl flex items-center justify-center text-blue-300 text-xs font-black border border-blue-800">
+                                            @if($emp->profile_image)
+                                                <img src="{{ asset('storage/'.$emp->profile_image) }}" class="w-full h-full object-cover rounded-xl">
+                                            @else
+                                                {{ substr($emp->name, 0, 1) }}
+                                            @endif
+                                        </div>
+                                        <div class="absolute -bottom-1 -right-1 w-3 h-3 rounded-full border-2 border-[#0F172A] {{ $es['is_online'] ? 'bg-emerald-500' : 'bg-slate-500' }}"></div>
+                                    </div>
+                                    <div>
+                                        <p class="text-[11px] text-white font-black uppercase tracking-wider group-hover:text-blue-400 transition-colors">{{ $emp->name }}</p>
+                                        <p class="text-[8px] text-slate-500 font-bold uppercase tracking-widest mt-0.5">{{ $dept }}</p>
+                                    </div>
+                                </div>
+                            </td>
+
+                            {{-- Connection Status --}}
+                            <td class="px-4 py-3 text-center">
+                                @if($es['is_online'])
+                                    <span class="inline-flex items-center gap-1.5 text-[8px] font-black text-emerald-400 border border-emerald-500/30 px-2.5 py-1 rounded bg-emerald-500/10 uppercase tracking-[0.2em] shadow-sm">
+                                        <span class="w-1.5 h-1.5 bg-emerald-400 rounded-full animate-pulse"></span> Sync
+                                    </span>
+                                @else
+                                    <span class="inline-flex items-center gap-1.5 text-[8px] font-black text-slate-400 border border-slate-600/30 px-2.5 py-1 rounded bg-slate-800 uppercase tracking-[0.2em]">
+                                        <span class="w-1.5 h-1.5 bg-slate-500 rounded-full"></span> Idle
+                                    </span>
+                                @endif
+                            </td>
+
+                            {{-- Active Tools (Tags) --}}
+                            <td class="px-4 py-3 text-center">
+                                <div class="flex flex-wrap justify-center gap-1 max-w-[150px] mx-auto">
+                                    @if($es['social_alert'])
+                                        <span class="text-[7px] text-white bg-rose-600 px-1.5 py-0.5 rounded shadow border border-rose-500 uppercase font-black tracking-widest">
+                                            <i class="fas fa-exclamation-circle"></i> Distracted
+                                        </span>
+                                    @elseif(count($es['ai_tools'] ?? []) > 0)
+                                        @foreach(array_slice($es['ai_tools'], 0, 2) as $tool)
+                                            <span class="text-[7px] font-black text-indigo-300 bg-indigo-500/20 border border-indigo-500/30 px-1.5 py-0.5 rounded shadow uppercase tracking-widest">{{ $tool }}</span>
+                                        @endforeach
+                                        @if(count($es['ai_tools']) > 2)
+                                            <span class="text-[7px] font-black text-slate-400 bg-slate-800 px-1.5 py-0.5 rounded shadow">...</span>
+                                        @endif
+                                    @else
+                                        <span class="text-[8px] font-bold text-slate-600 uppercase tracking-widest">—</span>
+                                    @endif
+                                </div>
+                            </td>
+
+                            {{-- Work Time Bar --}}
+                            <td class="px-4 py-3 text-center">
+                                <p class="text-[10px] font-black {{ $wh >= 8 ? 'text-emerald-400' : ($wh > 0 ? 'text-white' : 'text-slate-600') }}">{{ $wh }}h {{ $wm }}m</p>
+                                <div class="w-16 h-1 bg-slate-800 rounded-full mx-auto mt-1 overflow-hidden">
+                                    <div class="h-full {{ $wh >= 8 ? 'bg-emerald-500' : 'bg-blue-500' }}" style="width: {{ min(($wh / 9) * 100, 100) }}%"></div>
+                                </div>
+                            </td>
+
+                            {{-- Thumbnail Preview --}}
+                            <td class="px-4 py-3 text-center">
+                                @if($es['latest_snap'])
+                                    <div class="relative w-20 h-10 mx-auto rounded border border-slate-700 overflow-hidden cursor-pointer group/img"
+                                         onclick="previewShot('{{ asset('storage/'.$es['latest_snap']->image_path) }}', '{{ addslashes($es['latest_snap']->window_title ?? '') }}')">
+                                        <img src="{{ asset('storage/'.$es['latest_snap']->image_path) }}" class="w-full h-full object-cover opacity-60 group-hover/img:opacity-100 group-hover/img:scale-110 transition-all">
+                                        @if($es['latest_snap']->triggered_by_admin)
+                                            <div class="absolute top-0 right-0 bg-rose-500 text-white text-[5px] font-black uppercase px-1 py-0.5">ADM</div>
+                                        @endif
+                                    </div>
+                                @else
+                                    <div class="w-20 h-10 mx-auto rounded border border-slate-700 bg-slate-800/50 flex items-center justify-center opacity-50">
+                                        <i class="fas fa-video-slash text-xs text-slate-500"></i>
+                                    </div>
+                                @endif
+                            </td>
+
+                            {{-- Action Buttons --}}
+                            <td class="px-6 py-3 text-right">
+                                <div class="flex gap-1.5 justify-end">
+                                    <button onclick="triggerPulse({{ $emp->id }}, '{{ addslashes($emp->name) }}')" class="w-7 h-7 rounded border border-rose-500/30 bg-rose-500/10 text-rose-500 hover:bg-rose-500 hover:text-white transition-colors flex items-center justify-center shadow" title="Trigger Pulse">
+                                        <i class="fas fa-crosshairs text-[10px]"></i>
+                                    </button>
+                                    <a href="{{ route('admin.employees.pulses', $emp->id) }}" class="w-7 h-7 rounded border border-blue-500/30 bg-blue-500/10 text-blue-400 hover:bg-blue-600 hover:text-white transition-colors flex items-center justify-center shadow" title="Archive">
+                                        <i class="fas fa-images text-[10px]"></i>
+                                    </a>
+                                    <a href="{{ route('admin.employees.show', $emp->id) }}" class="w-7 h-7 rounded border border-slate-600 bg-slate-800 text-slate-300 hover:bg-slate-600 hover:text-white transition-colors flex items-center justify-center shadow" title="Dossier">
+                                        <i class="fas fa-user-shield text-[10px]"></i>
+                                    </a>
+                                </div>
+                            </td>
+
+                        </tr>
+                        @endforeach
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+    </div>
+</div>
+
+{{-- ══════════════════════════════════════════════════════
+     SCRIPTS & CHART.JS
+══════════════════════════════════════════════════════ --}}
+<style>
+    /* Custom Scrollbar for dense lists */
+    .custom-scrollbar::-webkit-scrollbar { width: 4px; height: 4px; }
+    .custom-scrollbar::-webkit-scrollbar-track { background: #0F172A; }
+    .custom-scrollbar::-webkit-scrollbar-thumb { background: #334155; border-radius: 10px; }
+    .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #475569; }
+</style>
+
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<script>
+    // 1. Operator Matrix Smart Search
+    document.getElementById('matrixSearch').addEventListener('input', function(e) {
+        const query = e.target.value.toLowerCase();
+        document.querySelectorAll('.matrix-row').forEach(row => {
+            if (row.dataset.search.includes(query)) {
+                row.style.display = '';
+            } else {
+                row.style.display = 'none';
+            }
+        });
+    });
+
+    // 2. Trigger Pulse Logic (Kept Intact)
+    function triggerPulse(userId, name) {
+        Swal.fire({
+            title: 'INITIATING SCAN',
+            html: `<p style="font-size:10px;color:#64748b;font-weight:bold;text-transform:uppercase;letter-spacing:1px">Target: ${name}</p>`,
+            allowOutsideClick: false,
+            showConfirmButton: false,
+            background: '#0F172A',
+            color: '#fff',
+            didOpen: () => { Swal.showLoading(); }
+        });
+
         fetch(`/admin/employees/${userId}/trigger-screenshot`, {
             method: 'POST',
-            headers: { 'X-CSRF-TOKEN': token, 'Content-Type': 'application/json' }
-        }).then(res => res.json()).then(data => {
-            if(data.success) {
-                Swal.fire({ title: '📸 SIGNAL TRANSMITTED', text: 'Surveillance pulse broadcasted.', icon: 'success', toast: true, position: 'top-end', showConfirmButton: false, timer: 3000, background: '#1e1b4b', color: '#fff' });
-            }
+            headers: { 'X-CSRF-TOKEN': '{{ csrf_token() }}', 'Content-Type': 'application/json' }
+        }).then(r => r.json()).then(data => {
+            Swal.fire({
+                title: 'SIGNAL SENT',
+                text: 'Awaiting telemetry response. Check archive in 5 secs.',
+                icon: 'success',
+                background: '#0F172A',
+                color: '#fff',
+                confirmButtonColor: '#3B82F6',
+            });
+        }).catch(() => { Swal.fire({ title: 'Error', icon: 'error' }); });
+    }
+
+    // 3. Simple Lightbox (To Avoid Clutter)
+    function previewShot(src, title) {
+        Swal.fire({
+            html: `<img src="${src}" style="width:100%; border-radius:8px; margin-bottom:10px;"><p style="font-size:10px; font-weight:bold; color:#60a5fa; text-transform:uppercase; letter-spacing:1px;">${title}</p>`,
+            background: '#0F172A',
+            showConfirmButton: false,
+            width: '800px',
+            showCloseButton: true
         });
     }
 
-    // Auto-refresh Dashboard every 45 seconds (Smart Polling)
-    setInterval(() => { 
-        if(document.getElementById('imageModal').classList.contains('hidden')) {
-            window.location.reload(); 
+    // 4. Initialize Department Chart.js
+    const ctx = document.getElementById('deptChart').getContext('2d');
+    new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: {!! json_encode($deptChartLabels) !!},
+            datasets: [
+                {
+                    label: 'Active Operators',
+                    data: {!! json_encode($deptActiveData) !!},
+                    backgroundColor: 'rgba(16, 185, 129, 0.8)', // Emerald
+                    borderRadius: 4,
+                    barPercentage: 0.6,
+                    categoryPercentage: 0.8
+                },
+                {
+                    label: 'Idle / Offline',
+                    data: {!! json_encode($deptIdleData) !!},
+                    backgroundColor: 'rgba(51, 65, 85, 0.8)', // Slate
+                    borderRadius: 4,
+                    barPercentage: 0.6,
+                    categoryPercentage: 0.8
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+                x: { stacked: true, grid: { display: false, drawBorder: false }, ticks: { color: '#94a3b8', font: { size: 9, weight: 'bold' } } },
+                y: { stacked: true, grid: { color: '#1e293b', drawBorder: false }, ticks: { color: '#94a3b8', stepSize: 5 } }
+            },
+            plugins: {
+                legend: { position: 'top', align: 'end', labels: { color: '#cbd5e1', usePointStyle: true, boxWidth: 6, font: { size: 10, weight: 'bold' } } },
+                tooltip: { backgroundColor: 'rgba(15, 23, 42, 0.9)', titleColor: '#fff', bodyColor: '#cbd5e1', borderColor: '#334155', borderWidth: 1 }
+            }
         }
-    }, 45000); 
+    });
 </script>
-
-<style>
-    @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;700;900&display=swap');
-    body { font-family: 'Space Grotesk', sans-serif; background: #020617; }
-    .glass-effect { background: rgba(255, 255, 255, 0.02); backdrop-filter: blur(20px); border: 1px solid rgba(255, 255, 255, 0.05); }
-    ::-webkit-scrollbar { width: 4px; }
-    ::-webkit-scrollbar-thumb { background: rgba(99, 102, 241, 0.2); border-radius: 10px; }
-</style>
 @endsection

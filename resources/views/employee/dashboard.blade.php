@@ -3,332 +3,631 @@
 @section('content')
 <meta name="csrf-token" content="{{ csrf_token() }}">
 
-<div id="lock-overlay" class="fixed inset-0 z-[9999] bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-900 backdrop-blur-xl flex items-center justify-center transition-all duration-700">
-    <div class="text-center p-12 bg-slate-900/60 backdrop-blur-lg border border-indigo-500/30 rounded-[3rem] shadow-2xl max-w-md w-full">
-        <div class="w-24 h-24 bg-gradient-to-br from-indigo-600 to-purple-600 rounded-full flex items-center justify-center mx-auto mb-8 border border-indigo-400/50 shadow-2xl relative overflow-hidden">
-            <div class="absolute inset-0 bg-indigo-600 opacity-20 animate-ping"></div>
+{{-- ═══════════════════════════════════════════════════════════
+     NODE LINK OVERLAY (NAVY BLUE THEME)
+═══════════════════════════════════════════════════════════ --}}
+<div id="lock-overlay" class="fixed inset-0 z-[9999] bg-[#0F172A]/95 backdrop-blur-xl flex items-center justify-center transition-all duration-700">
+    <div class="text-center p-12 bg-[#1E293B]/80 border border-blue-500/30 rounded-[3rem] shadow-2xl max-w-md w-full relative overflow-hidden">
+        <div class="absolute top-0 right-0 w-32 h-32 bg-blue-600/10 rounded-full blur-2xl"></div>
+        <div class="w-24 h-24 bg-blue-600 rounded-full flex items-center justify-center mx-auto mb-8 border border-blue-400/50 shadow-[0_0_30px_rgba(37,99,235,0.3)] relative overflow-hidden z-10">
+            <div class="absolute inset-0 bg-white opacity-20 animate-ping"></div>
             <i class="fas fa-satellite-dish text-4xl text-white relative z-10"></i>
         </div>
-        <h2 class="text-3xl font-bold text-white uppercase tracking-tighter mb-4 bg-gradient-to-r from-indigo-400 to-purple-400 bg-clip-text text-transparent">Node Link Required</h2>
-        <p class="text-slate-400 text-xs mb-8 uppercase font-bold tracking-widest">Establish secure connection to resume session</p>
-        <button onclick="initiateTracking()" class="w-full bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white py-4 rounded-2xl font-bold uppercase text-sm transition-all shadow-lg active:scale-95">
-            <i class="fas fa-link mr-2"></i>Establish Signal
+        <h2 class="text-3xl font-black text-white uppercase tracking-widest mb-4 relative z-10">Node Link Required</h2>
+        <p class="text-blue-300 text-[10px] mb-8 uppercase font-bold tracking-[0.2em] relative z-10">Establish secure connection to resume session</p>
+        <button onclick="initiateTracking()" class="w-full bg-blue-600 hover:bg-blue-500 text-white py-4 rounded-2xl font-black uppercase tracking-widest text-xs transition-all shadow-lg active:scale-95 relative z-10">
+            <i class="fas fa-link mr-2"></i> Establish Signal
         </button>
     </div>
 </div>
 
+{{-- ═══════════════════════════════════════════════════════════
+     INACTIVITY WARNING OVERLAY
+═══════════════════════════════════════════════════════════ --}}
+<div id="inactivity-overlay" class="fixed inset-0 z-[9998] hidden bg-[#0F172A]/95 backdrop-blur-xl flex items-center justify-center">
+    <div class="text-center p-12 bg-[#1E293B]/90 border border-amber-500/40 rounded-[3rem] shadow-2xl max-w-md w-full">
+        <div class="w-20 h-20 bg-amber-500/10 rounded-full flex items-center justify-center mx-auto mb-6 border border-amber-500/30">
+            <i class="fas fa-exclamation-triangle text-3xl text-amber-500 animate-pulse"></i>
+        </div>
+        <h2 class="text-2xl font-black text-white uppercase tracking-widest mb-3">Idle Detected</h2>
+        <p class="text-amber-500 text-[10px] mb-2 font-black tracking-[0.2em] uppercase">20 Minutes of Inactivity</p>
+        <p class="text-slate-400 text-xs mb-8 font-medium">Timer paused. Are you still working?</p>
+        <div class="flex gap-3">
+            <button onclick="resumeFromInactivity()" class="flex-1 bg-blue-600 hover:bg-blue-500 text-white py-4 rounded-2xl font-black uppercase text-xs tracking-widest transition-all shadow-lg active:scale-95">
+                <i class="fas fa-play mr-2"></i> Resume
+            </button>
+            <button onclick="stopSession()" class="flex-1 bg-rose-500/10 text-rose-500 border border-rose-500/30 py-4 rounded-2xl font-black uppercase text-xs tracking-widest transition-all hover:bg-rose-600 hover:text-white">
+                <i class="fas fa-power-off mr-2"></i> End Shift
+            </button>
+        </div>
+    </div>
+</div>
+
+{{-- ═══════════════════════════════════════════════════════════
+     MAIN DASHBOARD CONTENT
+═══════════════════════════════════════════════════════════ --}}
 <div id="dashboard-content" class="opacity-0 blur-xl pointer-events-none transition-all duration-1000">
-    <div class="min-h-screen bg-gradient-to-br from-slate-900 via-indigo-950/50 to-purple-950/50 relative z-10 p-6 md:p-12 text-white">
-        
-        <div class="mb-10 bg-white/10 backdrop-blur-md rounded-3xl p-6 md:p-8 shadow-2xl border border-white/20">
-            <div class="flex flex-col md:flex-row justify-between items-center gap-6">
-                <div class="flex items-center gap-6">
-                    <div class="relative group">
-                        <img src="{{ $user->profile_image ? asset('storage/'.$user->profile_image) : 'https://ui-avatars.com/api/?name='.urlencode($user->name).'&background=4f46e5&color=fff' }}" 
-                             class="w-24 h-24 rounded-full object-cover border-2 border-indigo-400 shadow-xl group-hover:scale-105 transition-transform duration-300">
-                        <div id="activity-node-status" class="absolute -bottom-1 -right-1 w-8 h-8 bg-gradient-to-br from-emerald-500 to-teal-500 rounded-full border-2 border-white shadow-lg flex items-center justify-center">
-                            <div class="w-4 h-4 bg-white rounded-full animate-pulse"></div>
-                        </div>
+<div class="min-h-screen bg-[#0B1120] relative z-10 p-6 md:p-10 text-white">
+
+    {{-- TOP BAR --}}
+    <div class="mb-8 bg-[#0F172A] rounded-3xl p-6 md:p-8 shadow-2xl border border-blue-900/30">
+        <div class="flex flex-col md:flex-row justify-between items-center gap-6">
+            <div class="flex items-center gap-6">
+                <div class="relative group">
+                    <img src="{{ auth()->user()->profile_image ? asset('storage/'.auth()->user()->profile_image) : 'https://ui-avatars.com/api/?name='.urlencode(auth()->user()->name).'&background=2563eb&color=fff' }}"
+                         class="w-20 h-20 rounded-2xl object-cover border border-blue-500/50 shadow-xl">
+                    <div class="absolute -bottom-2 -right-2 w-5 h-5 bg-emerald-500 rounded-full border-2 border-[#0F172A] shadow-lg flex items-center justify-center">
+                        <div class="w-2 h-2 bg-white rounded-full animate-pulse"></div>
                     </div>
-                    <div>
-                        <h2 class="text-3xl md:text-4xl font-bold text-white uppercase tracking-tight">Operator <span class="bg-gradient-to-r from-indigo-400 via-purple-400 to-pink-400 bg-clip-text text-transparent">Node</span></h2>
-                        <p class="text-white/60 text-xs md:text-sm font-medium uppercase tracking-widest mt-2">
-                            ID: {{ $user->name }} | 
-                            <span class="text-indigo-300">SHIFT: <span id="shift-display" class="font-bold">DETECTING...</span></span>
-                        </p>
+                </div>
+                <div>
+                    <h2 class="text-3xl font-black text-white uppercase tracking-widest">
+                        Operator <span class="text-blue-500">Node</span>
+                    </h2>
+                    <p class="text-slate-400 text-[10px] font-bold uppercase tracking-[0.2em] mt-1">
+                        {{ auth()->user()->name }} | <span class="text-blue-400">SHIFT: <span id="shift-display" class="font-black text-white">DETECTING...</span></span>
+                    </p>
+                    <div id="activity-status" class="mt-2 hidden">
+                        <span class="inline-flex items-center gap-1.5 bg-amber-500/10 border border-amber-500/30 text-amber-500 px-3 py-1 rounded-md text-[8px] font-black uppercase tracking-widest">
+                            <span class="w-1.5 h-1.5 bg-amber-500 rounded-full animate-pulse"></span>
+                            <span id="activity-status-text">Active</span>
+                        </span>
                     </div>
+                </div>
+            </div>
+
+            <div class="flex flex-wrap items-center gap-3">
+                {{-- ⭐ ADVANCED FEATURE: Live Clock --}}
+                <div class="bg-[#1E293B] border border-slate-700/50 px-6 py-3 rounded-2xl flex flex-col items-center min-w-[120px]">
+                    <p class="text-[8px] font-bold uppercase text-slate-400 tracking-widest mb-1">Current Time</p>
+                    <p id="live-clock" class="text-lg font-black text-white tracking-widest">00:00:00</p>
                 </div>
 
-                <div class="flex flex-wrap items-center gap-4">
-                    <div class="bg-slate-800/50 border border-white/10 px-5 py-4 rounded-2xl flex flex-col items-center min-w-[100px]">
-                        <p class="text-[8px] font-bold uppercase text-white/40 tracking-widest mb-1">Local Signal</p>
-                        <p id="live-clock" class="text-lg font-mono font-bold text-emerald-400 tracking-tighter">00:00:00</p>
-                    </div>
-                    <div class="bg-slate-800/50 border border-white/10 px-5 py-4 rounded-2xl flex flex-col items-center min-w-[100px]">
-                        <p class="text-[8px] font-bold uppercase text-white/40 tracking-widest mb-1">Daily Logins</p>
-                        <p class="text-lg font-bold text-indigo-400">{{ \App\Models\Attendance::where('user_id', Auth::id())->whereDate('date', now())->count() }}</p>
-                    </div>
-                    <div class="bg-gradient-to-r from-indigo-600 to-purple-600 text-white px-6 py-4 rounded-2xl shadow-xl flex flex-col items-center min-w-[140px] border border-white/10">
-                        <p class="text-[8px] font-bold uppercase tracking-widest opacity-80 mb-1">Session Duration</p>
-                        <p id="session-timer" class="text-xl font-mono font-bold tracking-tight text-white">00:00:00</p>
-                    </div>
-                    <div class="bg-white/10 backdrop-blur-md text-white px-6 py-4 rounded-2xl shadow-xl border border-white/20 flex flex-col items-center min-w-[140px]">
-                        <p class="text-[8px] font-bold uppercase tracking-widest text-white/60 mb-1">Telemetry Status</p>
-                        <p id="sync-status" class="text-[10px] font-mono font-bold text-emerald-400 mt-1 uppercase tracking-tighter italic">● SECURED</p>
-                    </div>
-                    <button onclick="stopSession()" class="w-12 h-12 flex items-center justify-center bg-rose-500/20 text-rose-400 rounded-xl hover:bg-rose-500 hover:text-white transition-all border border-rose-500/30 shadow-lg group">
-                        <i class="fas fa-power-off text-sm group-hover:rotate-90 transition-transform"></i>
-                    </button>
+                <div class="bg-[#1E293B] border border-slate-700/50 px-6 py-3 rounded-2xl flex flex-col items-center min-w-[120px]">
+                    <p class="text-[8px] font-bold uppercase text-slate-400 tracking-widest mb-1">Logins Today</p>
+                    <p class="text-lg font-black text-white">
+                        {{ \App\Models\Attendance::where('user_id', Auth::id())->whereDate('date', now())->count() }}
+                    </p>
                 </div>
+
+                <div class="bg-blue-600 text-white px-6 py-3 rounded-2xl shadow-[0_0_20px_rgba(37,99,235,0.2)] flex flex-col items-center min-w-[140px] border border-blue-500">
+                    <p class="text-[8px] font-bold uppercase tracking-widest text-blue-200 mb-1">Active Session</p>
+                    <p id="session-timer" class="text-xl font-mono font-black tracking-widest">00:00:00</p>
+                </div>
+
+                <button onclick="stopSession()" class="w-14 h-14 flex items-center justify-center bg-rose-500/10 text-rose-500 rounded-2xl hover:bg-rose-600 hover:text-white transition-all border border-rose-500/20 shadow-lg" title="End Shift">
+                    <i class="fas fa-power-off text-lg"></i>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    {{-- PROGRESS & STATS ROW --}}
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+        <div class="bg-[#0F172A] rounded-3xl p-6 border border-blue-900/30 shadow-xl">
+            <div class="flex justify-between items-center mb-4">
+                <p class="text-[9px] font-black uppercase text-slate-400 tracking-[0.2em]">Overall Work Progress</p>
+                @php $avgProgress = $tasks->count() > 0 ? round($tasks->avg('completion_percentage')) : 0; @endphp
+                <span class="text-blue-500 font-black text-sm">{{ $avgProgress }}%</span>
+            </div>
+            <div class="w-full bg-[#1E293B] h-2 rounded-full overflow-hidden border border-slate-700/50">
+                <div class="bg-blue-600 h-full transition-all duration-1000" style="width: {{ $avgProgress }}%"></div>
             </div>
         </div>
 
-        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
-            <div class="lg:col-span-1 space-y-6">
-                <div class="bg-white/10 backdrop-blur-md rounded-3xl p-8 border border-white/20">
-                    <h3 class="text-sm font-bold text-indigo-400 uppercase tracking-widest mb-6 flex items-center"><i class="fas fa-satellite-dish mr-2"></i>Deployment Intel</h3>
-                    <div class="bg-white/5 rounded-2xl p-4 border border-white/10">
-                        <p class="text-[8px] font-bold text-white/50 uppercase mb-2 tracking-tighter">System Status</p>
-                        <p id="monitor-text" class="text-emerald-400 font-bold text-sm uppercase italic flex items-center">
-                            <span class="w-2 h-2 bg-emerald-400 rounded-full mr-2 animate-pulse"></span>Signal Secured
-                        </p>
-                    </div>
-                </div>
+        <div class="bg-[#0F172A] rounded-3xl p-6 border border-blue-900/30 shadow-xl flex justify-around items-center">
+            <div class="text-center">
+                <p class="text-[8px] font-black uppercase text-slate-400 tracking-[0.2em] mb-1">Active Tasks</p>
+                <p class="text-2xl font-black text-white">{{ $tasks->count() }}</p>
+            </div>
+            <div class="h-10 w-[1px] bg-slate-700/50"></div>
+            <div class="text-center">
+                <p class="text-[8px] font-black uppercase text-slate-400 tracking-[0.2em] mb-1">Hours Worked</p>
+                @php $wh = floor($totalSeconds/3600); $wm = floor(($totalSeconds%3600)/60); @endphp
+                <p id="stat-work-hours" class="text-2xl font-black text-emerald-500">{{ $wh }}h {{ $wm }}m</p>
+            </div>
+        </div>
+    </div>
 
-                <div class="bg-gradient-to-br from-emerald-900/30 to-teal-900/30 backdrop-blur-md rounded-[2.5rem] p-8 border border-emerald-500/20 shadow-2xl">
-                    <h4 class="text-sm font-bold text-emerald-400 uppercase tracking-widest mb-6 flex items-center"><i class="fas fa-broadcast-tower mr-2"></i>Commander's Briefing</h4>
-                    <div class="space-y-4 max-h-[300px] overflow-y-auto custom-scrollbar pr-2">
-                        @forelse($adminFeedbacks ?? [] as $feedback)
-                        <div class="bg-white/5 rounded-2xl p-4 border border-emerald-500/10 transition-all duration-300">
-                            <div class="flex justify-between mb-2">
-                                <span class="text-[8px] font-bold bg-gradient-to-r from-emerald-500 to-teal-500 text-white px-3 py-1 rounded-full italic">RATING: {{ $feedback->rating_score }}/10</span>
-                                <span class="text-[7px] text-white/30">{{ $feedback->created_at->diffForHumans() }}</span>
-                            </div>
-                            <p class="text-xs text-slate-200 italic leading-relaxed">"{{ $feedback->review_note }}"</p>
-                            <p class="text-[8px] text-indigo-400 mt-3 font-bold uppercase flex items-center"><i class="fas fa-tasks mr-1"></i>OBJ: {{ $feedback->task->title ?? 'N/A' }}</p>
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        <div class="lg:col-span-1 space-y-6">
+            <div class="bg-[#0F172A] rounded-[2.5rem] p-8 border border-emerald-900/50 shadow-2xl relative overflow-hidden">
+                <div class="absolute top-0 right-0 w-32 h-32 bg-emerald-900/20 blur-2xl rounded-full"></div>
+                <h4 class="text-xs font-black text-emerald-500 uppercase tracking-[0.2em] mb-6 flex items-center gap-2 relative z-10">
+                    <i class="fas fa-broadcast-tower"></i> Commander's Briefing
+                </h4>
+                <div class="space-y-4 max-h-[250px] overflow-y-auto custom-scrollbar pr-2 relative z-10">
+                    @forelse($adminFeedbacks as $feedback)
+                    <div class="bg-[#1E293B] rounded-xl p-4 border border-slate-700/50 border-l-2 border-l-emerald-500">
+                        <div class="flex justify-between mb-2 items-center">
+                            <span class="text-[8px] font-black bg-emerald-500/10 text-emerald-500 px-2 py-0.5 rounded tracking-widest">SCORE: {{ $feedback->rating_score }}/10</span>
+                            <span class="text-[7px] text-slate-500 uppercase tracking-widest font-bold">{{ $feedback->created_at->diffForHumans() }}</span>
                         </div>
-                        @empty
-                        <div class="text-center py-10 opacity-20"><i class="fas fa-inbox text-4xl mb-4"></i><p class="text-sm uppercase tracking-widest">Waiting for Command...</p></div>
-                        @endforelse
+                        <p class="text-[10px] text-slate-300 italic font-medium leading-relaxed">"{{ $feedback->review_note }}"</p>
                     </div>
+                    @empty
+                    <p class="text-center text-slate-500 italic text-[10px] py-10 uppercase tracking-widest font-bold">No new commands...</p>
+                    @endforelse
                 </div>
             </div>
 
-            <div class="lg:col-span-2">
-                <div class="bg-white/10 backdrop-blur-md rounded-[3rem] p-8 shadow-2xl border border-white/20 min-h-[450px]">
-                    <h4 class="text-xl font-bold text-white uppercase mb-8 flex items-center">Active <span class="text-indigo-400 ml-2">Objectives</span></h4>
-                    <div class="space-y-6">
-                        @forelse($tasks as $task)
-                        <div class="bg-white/5 rounded-3xl p-6 border border-white/10 hover:border-indigo-500/30 transition-all duration-300">
-                            <div class="flex flex-col md:flex-row justify-between items-start gap-4">
-                                <div class="flex-1 w-full">
-                                    <span class="text-[8px] font-bold px-3 py-1 bg-indigo-500/20 text-indigo-300 rounded-full uppercase border border-indigo-500/20 inline-flex items-center"><span class="w-2 h-2 bg-indigo-400 rounded-full mr-2 animate-pulse"></span>{{ $task->status }}</span>
-                                    <h5 class="text-2xl font-bold text-white mt-3 tracking-tight">{{ $task->title }}</h5>
-                                    <p class="text-sm text-white/60 mt-2 italic">{{ $task->description }}</p>
-                                    <div class="mt-5 w-full bg-white/5 h-2 rounded-full overflow-hidden">
-                                        <div class="bg-gradient-to-r from-indigo-500 to-emerald-500 h-full transition-all duration-1000" style="width: {{ $task->completion_percentage ?? 0 }}%"></div>
+            <div class="bg-[#0F172A] rounded-[2.5rem] p-8 border border-blue-900/30 shadow-2xl">
+                <h4 class="text-xs font-black text-blue-500 uppercase tracking-[0.2em] mb-6">Weekly Activity</h4>
+                <div id="weeklyChart"></div>
+            </div>
+        </div>
+
+        <div class="lg:col-span-2 space-y-6">
+            <div class="bg-[#0F172A] rounded-[3rem] p-8 shadow-2xl border border-blue-900/30">
+                <h4 class="text-sm font-black text-white uppercase tracking-widest mb-8 flex items-center gap-3">
+                    <i class="fas fa-crosshairs text-blue-500"></i> Active Objectives
+                </h4>
+                <div class="space-y-4">
+                    @forelse($tasks as $task)
+                    <div class="bg-[#1E293B] rounded-2xl p-5 border border-slate-700/50 hover:border-blue-500/50 transition-all">
+                        <div class="flex flex-col md:flex-row justify-between items-center gap-4">
+                            <div class="flex-1 w-full">
+                                <span class="text-[7px] font-black px-2 py-0.5 bg-blue-500/10 text-blue-400 rounded tracking-widest uppercase border border-blue-500/20">{{ str_replace('_', ' ', $task->status) }}</span>
+                                <h5 class="text-sm font-bold text-white mt-2">{{ $task->title }}</h5>
+                                <div class="mt-3 flex items-center gap-3">
+                                    <div class="flex-1 bg-[#0F172A] h-1.5 rounded-full overflow-hidden border border-slate-700/50">
+                                        <div class="bg-blue-500 h-full transition-all duration-1000" style="width: {{ $task->completion_percentage ?? 0 }}%"></div>
                                     </div>
-                                    <p class="text-[10px] text-white/40 mt-2 font-mono">{{ $task->completion_percentage ?? 0 }}% Complete</p>
-                                </div>
-                                <div class="flex gap-2 w-full md:w-auto">
-                                    <button onclick="openOperationalModal({{ $task->id }})" class="flex-1 md:flex-none bg-indigo-600 hover:bg-indigo-500 text-white px-6 py-3 rounded-xl text-xs font-bold uppercase transition-all shadow-lg active:scale-95"><i class="fas fa-edit mr-2"></i>Update Intel</button>
-                                    <button onclick="openForwardModal({{ $task->id }}, '{{ $task->title }}')" class="bg-white/5 text-white px-4 py-3 rounded-xl border border-white/10 hover:bg-purple-600/20 transition-all"><i class="fas fa-share-alt"></i></button>
+                                    <span class="text-[8px] font-black text-slate-400 tracking-widest">{{ $task->completion_percentage ?? 0 }}%</span>
                                 </div>
                             </div>
+                            
+                            {{-- UPDATE & FORWARD BUTTONS --}}
+                            <div class="flex gap-2 w-full md:w-auto mt-4 md:mt-0">
+                                <button onclick="openForwardModal({{ $task->id }})" class="bg-indigo-600/20 text-indigo-400 border border-indigo-500/30 hover:bg-indigo-600 hover:text-white px-4 py-2.5 rounded-xl text-[10px] font-black transition-all shadow-lg" title="Forward Task">
+                                    <i class="fas fa-share-square"></i>
+                                </button>
+                                <button onclick="openOperationalModal({{ $task->id }})" class="flex-1 md:flex-none bg-blue-600 hover:bg-blue-500 text-white px-6 py-2.5 rounded-xl text-[9px] font-black uppercase tracking-[0.2em] transition-all shadow-lg">Update</button>
+                            </div>
+
                         </div>
-                        @empty
-                        <div class="text-center py-20 opacity-20"><i class="fas fa-clipboard-list text-6xl mb-4"></i><p class="uppercase font-bold text-sm tracking-widest">No assigned nodes</p></div>
-                        @endforelse
                     </div>
+                    @empty
+                    <p class="text-center py-10 text-slate-500 uppercase tracking-widest font-bold text-[10px]">No active objectives</p>
+                    @endforelse
                 </div>
             </div>
         </div>
     </div>
 </div>
-
-<div id="forwardModal" class="fixed inset-0 z-[10000] hidden bg-slate-950/90 backdrop-blur-md flex items-center justify-center p-4">
-    <div id="forwardModalContent" class="bg-slate-900 max-w-sm w-full rounded-[2.5rem] border border-white/10 shadow-2xl p-8 transform scale-95 opacity-0 transition-all duration-300">
-        <h3 class="text-sm font-bold text-indigo-400 uppercase mb-6 tracking-widest text-center italic">Reassign Objective</h3>
-        <p id="forward_task_title" class="text-white text-xs mb-6 opacity-60 text-center bg-white/5 p-3 rounded-lg"></p>
-        <form onsubmit="handleForward(event)">
-            @csrf
-            <input type="hidden" name="task_id" id="forward_task_id">
-            <select id="receiver_id_select" name="receiver_id" required class="w-full bg-white/5 border border-white/10 rounded-2xl px-4 py-4 text-sm font-bold text-white outline-none mb-6 appearance-none">
-                <option value="" class="bg-slate-900">Select Operator...</option>
-                @foreach($fleetMembers ?? [] as $member) <option value="{{ $member->id }}" class="bg-slate-900">{{ $member->name }}</option> @endforeach
-            </select>
-            <div class="flex gap-3">
-                <button type="button" onclick="closeForwardModal()" class="flex-1 text-sm font-bold uppercase text-white/50">Cancel</button>
-                <button type="submit" class="flex-[2] bg-indigo-600 text-white py-4 rounded-2xl font-bold uppercase text-xs tracking-widest shadow-lg">Confirm</button>
-            </div>
-        </form>
-    </div>
-</div>
-
-<div id="opModal" class="fixed inset-0 z-[10000] hidden bg-slate-950/95 backdrop-blur-md flex items-center justify-center p-4">
-    <div id="opModalContent" class="bg-white max-w-lg w-full rounded-[3rem] shadow-2xl overflow-hidden transform scale-95 opacity-0 transition-all duration-300">
-        <div class="p-6 bg-slate-900 flex justify-between items-center border-b border-white/10 text-indigo-400">
-            <h3 class="text-xs font-bold uppercase tracking-widest">Operational Log Entry</h3>
-            <button onclick="closeOperationalModal()" class="text-white/50 hover:text-white"><i class="fas fa-times"></i></button>
-        </div>
-        <form action="{{ route('employee.feedback.store') }}" method="POST" class="p-8 space-y-6">
-            @csrf
-            <input type="hidden" name="task_id" id="modal_task_id">
-            <div class="grid grid-cols-2 gap-4">
-                <input type="number" name="completion_percentage" min="0" max="100" placeholder="Progress %" required class="bg-slate-100 border-none rounded-2xl px-4 py-4 text-sm font-bold text-slate-900">
-                <input type="text" name="blockers" placeholder="Blockers?" class="bg-slate-100 border-none rounded-2xl px-4 py-4 text-sm font-bold text-slate-900">
-            </div>
-            <textarea name="update_note" rows="4" required class="w-full bg-slate-100 border-none rounded-2xl px-4 py-4 text-sm font-bold text-slate-900 resize-none" placeholder="Achievements..."></textarea>
-            <button type="submit" class="w-full bg-indigo-600 text-white py-5 rounded-3xl font-bold uppercase text-xs tracking-widest shadow-lg active:scale-95 transition-all">Transmit Report</button>
-        </form>
-    </div>
 </div>
 
 <canvas id="screenshotCanvas" style="display:none;"></canvas>
 
-<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
-<script>
-    let videoTrack = null;
-    let workSeconds = {{ $totalSeconds ?? 0 }};
-    
-    // Persistent Timer
-    if(workSeconds === 0) localStorage.removeItem('currentWorkSeconds');
-    else workSeconds = parseInt(localStorage.getItem('currentWorkSeconds')) || workSeconds;
+{{-- ═══════════════════════════════════════════════════════════
+     OPERATIONAL LOG MODAL (UPDATE TASK)
+═══════════════════════════════════════════════════════════ --}}
+<div id="opModal" class="fixed inset-0 z-[10000] hidden bg-[#0F172A]/90 backdrop-blur-sm flex items-center justify-center p-4">
+    <div id="opModalContent" class="bg-white max-w-lg w-full rounded-[2rem] shadow-2xl overflow-hidden transform scale-95 opacity-0 transition-all duration-300">
+        <div class="p-6 bg-[#0F172A] flex justify-between items-center border-b border-blue-900/50">
+            <h3 class="text-[10px] font-black text-blue-400 uppercase tracking-[0.2em]">Operational Log Entry</h3>
+            <button onclick="closeOperationalModal()" class="text-slate-400 hover:text-rose-500 transition-colors"><i class="fas fa-times"></i></button>
+        </div>
+        {{-- ⭐ ADVANCED FEATURE: Button Loader to prevent double click --}}
+        <form action="{{ route('employee.feedback.store') }}" method="POST" class="p-8 space-y-5" onsubmit="this.querySelector('button[type=submit]').disabled = true; this.querySelector('button[type=submit]').innerHTML = '<i class=\'fas fa-spinner fa-spin mr-2\'></i> Transmitting...';">
+            @csrf
+            <input type="hidden" name="task_id" id="modal_task_id">
+            <div class="grid grid-cols-2 gap-4">
+                <input type="number" name="completion_percentage" min="0" max="100" required class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-xs font-bold text-slate-900 outline-none focus:border-blue-500 transition-colors" placeholder="Progress %">
+                <input type="text" name="blockers" placeholder="Any blockers?" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-xs font-bold text-slate-900 outline-none focus:border-blue-500 transition-colors">
+            </div>
+            <textarea name="update_note" rows="4" required class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-xs font-bold text-slate-900 resize-none outline-none focus:border-blue-500 transition-colors" placeholder="Update details..."></textarea>
+            <button type="submit" class="w-full bg-blue-600 text-white py-4 rounded-xl font-black uppercase tracking-[0.2em] text-[10px] shadow-lg active:scale-95 transition-all hover:bg-blue-700">Transmit Report</button>
+        </form>
+    </div>
+</div>
 
-    // 🕒 1. LIVE CLOCK
-    function startLiveClock() {
-        setInterval(() => {
-            const el = document.getElementById('live-clock');
-            if(el) el.innerText = new Date().toLocaleTimeString('en-GB', { hour12: false });
-        }, 1000);
-    }
-
-    // 🚀 2. FORWARD LOGIC
-    async function handleForward(e) {
-        e.preventDefault();
-        const taskId = document.getElementById('forward_task_id').value;
-        const receiverId = document.getElementById('receiver_id_select').value;
-        const token = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
-        try {
-            const res = await fetch(`/employee/tasks/${taskId}/forward`, {
-                method: 'POST',
-                headers: { 'X-CSRF-TOKEN': token, 'Content-Type': 'application/json', 'Accept': 'application/json' },
-                body: JSON.stringify({ receiver_id: receiverId })
-            });
-            const data = await res.json();
-            if(data.success) {
-                Swal.fire({ title: 'Success!', text: 'Objective Forwarded.', icon: 'success', background: '#020617', color: '#fff' }).then(() => location.reload());
-            }
-        } catch (error) { console.error(error); }
-    }
-
-    // 🛰️ 3. DATABASE SYNC & TIMER
-    function syncTimer() {
-        const token = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
-        fetch("{{ route('employee.sync.timer') }}", {
-            method: "POST", 
-            headers: { "X-CSRF-TOKEN": token, "Content-Type": "application/json", "Accept": "application/json" },
-            body: JSON.stringify({ seconds: workSeconds })
-        });
-    }
-
-    function startOperationalSystems() {
-        updateShiftDisplay();
-        setInterval(() => {
-            workSeconds++;
-            const h = Math.floor(workSeconds / 3600).toString().padStart(2, '0');
-            const m = Math.floor((workSeconds % 3600) / 60).toString().padStart(2, '0');
-            const s = (workSeconds % 60).toString().padStart(2, '0');
-            const timerEl = document.getElementById('session-timer');
-            if(timerEl) timerEl.innerText = `${h}:${m}:${s}`;
-            localStorage.setItem('currentWorkSeconds', workSeconds);
-
-            // ⭐ LOGIC FIX: Har 15 sec baad Sync
-            if(workSeconds % 15 === 0) syncTimer();
+{{-- ═══════════════════════════════════════════════════════════
+     FORWARD TASK MODAL
+═══════════════════════════════════════════════════════════ --}}
+<div id="forwardModal" class="fixed inset-0 z-[10000] hidden bg-[#0F172A]/90 backdrop-blur-sm flex items-center justify-center p-4">
+    <div id="forwardModalContent" class="bg-white max-w-lg w-full rounded-[2rem] shadow-2xl overflow-hidden transform scale-95 opacity-0 transition-all duration-300">
+        <div class="p-6 bg-[#0F172A] flex justify-between items-center border-b border-indigo-900/50">
+            <h3 class="text-[10px] font-black text-indigo-400 uppercase tracking-[0.2em]"><i class="fas fa-share mr-2"></i> Forward Objective</h3>
+            <button onclick="closeForwardModal()" class="text-slate-400 hover:text-rose-500 transition-colors"><i class="fas fa-times"></i></button>
+        </div>
+        
+        <form id="forward-form" method="POST" class="p-8 space-y-5" onsubmit="this.querySelector('button[type=submit]').disabled = true; this.querySelector('button[type=submit]').innerHTML = '<i class=\'fas fa-spinner fa-spin mr-2\'></i> Forwarding...';">
+            @csrf
+            <input type="hidden" name="task_id" id="forward_task_id">
             
-            // ⭐ LOGIC FIX: Har 5 Minute (300 sec) baad Auto Screenshot (Jaisa kal tha)
-            if(workSeconds % 300 === 0) captureAndUpload(false); 
-        }, 1000);
+            <div>
+                <label class="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2">Select Team Member</label>
+                <select name="forwarded_to" required class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-xs font-bold text-slate-900 outline-none focus:border-indigo-500 transition-colors">
+                    <option value="">-- Choose Colleague --</option>
+                    @foreach($users ?? [] as $teamMember)
+                        @if($teamMember->id !== auth()->id())
+                            <option value="{{ $teamMember->id }}">{{ $teamMember->name }} ({{ $teamMember->role ?? 'Employee' }})</option>
+                        @endif
+                    @endforeach
+                </select>
+            </div>
 
-        // Silent Trigger check har 5 sec
-        setInterval(async () => {
-            try {
-                const res = await fetch("{{ route('employee.check.trigger') }}");
-                const data = await res.json();
-                if(data.trigger) captureAndUpload(true);
-            } catch(e) {}
-        }, 5000);
-    }
+            <textarea name="forward_reason" rows="3" required class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-xs font-bold text-slate-900 resize-none outline-none focus:border-indigo-500 transition-colors" placeholder="Why are you forwarding this task?"></textarea>
+            
+            <button type="submit" class="w-full bg-indigo-600 text-white py-4 rounded-xl font-black uppercase tracking-[0.2em] text-[10px] shadow-lg active:scale-95 transition-all hover:bg-indigo-700">Forward Task</button>
+        </form>
+    </div>
+</div>
 
-    // 📸 4. SCREENSHOT CAPTURE (PRO VERSION)
-    async function captureAndUpload(isSilent) {
-        if (!videoTrack || videoTrack.readyState !== 'live') return;
-        const canvas = document.getElementById('screenshotCanvas');
-        const video = document.createElement('video');
-        try {
-            video.srcObject = new MediaStream([videoTrack]);
-            await video.play();
-            canvas.width = video.videoWidth; canvas.height = video.videoHeight;
-            canvas.getContext('2d').drawImage(video, 0, 0, canvas.width, canvas.height);
-            const data = canvas.toDataURL('image/jpeg', 0.3); // High Quality
-            fetch("{{ route('employee.upload.screenshot') }}", { 
-                method: "POST", headers: { "X-CSRF-TOKEN": '{{ csrf_token() }}', "Content-Type": "application/json" }, 
-                body: JSON.stringify({ image: data, window_title: isSilent ? "ADMIN_SURVEILLANCE_TRIGGER" : document.title })
-            });
-            video.srcObject = null;
-            video.remove();
-        } catch (e) { console.error("Capture Failed"); }
-    }
+{{-- Scripts required for advanced features --}}
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+<script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
+{{-- Confetti for 100% completion celebration --}}
+<script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
 
-    // 🏁 5. SESSION MANAGEMENT
-    async function initiateTracking() {
-        try {
-            const stream = await navigator.mediaDevices.getDisplayMedia({ video: { displaySurface: "monitor" } });
-            videoTrack = stream.getVideoTracks()[0];
-            document.getElementById('lock-overlay').style.opacity = '0';
-            setTimeout(() => {
-                document.getElementById('lock-overlay').style.display = 'none';
-                document.getElementById('dashboard-content').classList.remove('opacity-0', 'blur-xl', 'pointer-events-none');
-            }, 700);
-            startOperationalSystems();
-            fetch("{{ route('employee.attendance.checkin') }}", { method: "POST", headers: { "X-CSRF-TOKEN": "{{ csrf_token() }}" } });
-        } catch (err) { Swal.fire({ title: 'ACCESS DENIED', text: 'Signal required.', icon: 'error' }); }
-    }
-
-    async function stopSession() {
-        const { value: summary } = await Swal.fire({
-            title: 'STOP SESSION?',
-            input: 'textarea',
-            inputPlaceholder: 'Briefly explain your shift achievements...',
-            showCancelButton: true,
-            background: '#020617',
-            color: '#fff',
-            confirmButtonColor: '#4f46e5'
+<script>
+// ⭐ ADVANCED FEATURE: SweetAlert2 Auto-Toasts for session messages
+@if(session('success'))
+    document.addEventListener('DOMContentLoaded', () => {
+        Swal.fire({
+            toast: true, position: 'top-end', showConfirmButton: false,
+            timer: 4000, timerProgressBar: true, icon: 'success',
+            title: "{{ session('success') }}",
+            background: '#0F172A', color: '#fff',
+            iconColor: '#10B981'
         });
-        if (summary) {
-            fetch("{{ route('employee.session.stop') }}", { 
-                method: "POST", headers: { "X-CSRF-TOKEN": "{{ csrf_token() }}", "Content-Type": "application/json" },
-                body: JSON.stringify({ summary: summary })
-            }).then(() => {
-                localStorage.removeItem('currentWorkSeconds');
-                window.location.href = "/login";
-            });
+        
+        // Agar task completely forward hua ya finish hua ho to Confetti (Celebration) fire karo
+        confetti({ particleCount: 100, spread: 70, origin: { y: 0.6 }, colors: ['#2563eb', '#10b981', '#ffffff'] });
+    });
+@endif
+
+@if(session('error'))
+    document.addEventListener('DOMContentLoaded', () => {
+        Swal.fire({
+            toast: true, position: 'top-end', showConfirmButton: false,
+            timer: 4000, timerProgressBar: true, icon: 'error',
+            title: "{{ session('error') }}",
+            background: '#0F172A', color: '#fff'
+        });
+    });
+@endif
+
+// ⭐ ADVANCED FEATURE: Live Digital Clock
+function updateLiveClock() {
+    const clockEl = document.getElementById('live-clock');
+    if (clockEl) {
+        const now = new Date();
+        clockEl.innerText = now.toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' });
+    }
+}
+setInterval(updateLiveClock, 1000);
+updateLiveClock();
+
+// ═══════════════════════════════════════════════════════════
+//  CORE STATE (Unchanged)
+// ═══════════════════════════════════════════════════════════
+let videoTrack        = null;
+let workSeconds       = {{ $totalSeconds ?? 0 }};
+let isTimerRunning    = false;
+let isInactiveOverlay = false;
+let lastActivityTime  = Date.now();
+let timerInterval     = null;
+let triggerInterval   = null;
+let aiInterval        = null;
+
+const captureTargets = [30, 60, 120, 180, 300, 420, 540, 660, 780, 900, 1080, 1260];
+let currentCaptureIndex = 0;
+let cycleStartTime = 0; 
+
+const INACTIVITY_LIMIT = 20 * 60 * 1000; // 20 minutes in ms
+const csrfToken = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
+
+// ═══════════════════════════════════════════════════════════
+//  Automated Surface/Window Title Detection
+// ═══════════════════════════════════════════════════════════
+function getSurfaceLabel() {
+    if (videoTrack && videoTrack.label && videoTrack.label.trim().length > 0) {
+        return videoTrack.label;
+    }
+    return document.title;
+}
+
+// ═══════════════════════════════════════════════════════════
+//  ACTIVITY TRACKING
+// ═══════════════════════════════════════════════════════════
+function resetActivityTimer() {
+    lastActivityTime = Date.now();
+    if (isInactiveOverlay) {
+        resumeFromInactivity();
+    }
+}
+
+['mousemove', 'mousedown', 'keydown', 'scroll', 'touchstart', 'click', 'focus'].forEach(event => {
+    document.addEventListener(event, resetActivityTimer, { passive: true });
+});
+
+document.addEventListener('visibilitychange', () => {
+    if (!document.hidden) {
+        resetActivityTimer();
+    }
+});
+
+function checkInactivity() {
+    if (!isTimerRunning || isInactiveOverlay) return;
+
+    const idleMs = Date.now() - lastActivityTime;
+    if (idleMs >= INACTIVITY_LIMIT) {
+        triggerInactivityAlert();
+    }
+}
+
+function triggerInactivityAlert() {
+    isInactiveOverlay = true;
+    if (timerInterval) {
+        clearInterval(timerInterval);
+        timerInterval = null;
+    }
+
+    document.getElementById('inactivity-overlay').classList.remove('hidden');
+    document.getElementById('activity-status').classList.remove('hidden');
+    document.getElementById('activity-status-text').innerText = 'IDLE — Timer Paused';
+
+    fetch("{{ route('employee.attendance.report-idle') }}", {
+        method: 'POST',
+        headers: { 'X-CSRF-TOKEN': csrfToken, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ seconds: workSeconds })
+    }).catch(() => {});
+}
+
+function resumeFromInactivity() {
+    isInactiveOverlay = false;
+    lastActivityTime = Date.now();
+    document.getElementById('inactivity-overlay').classList.add('hidden');
+    document.getElementById('activity-status-text').innerText = 'ACTIVE';
+
+    if (!timerInterval && isTimerRunning) {
+        startTimerInterval();
+    }
+}
+
+// ═══════════════════════════════════════════════════════════
+//  Timer with RANDOM SCREENSHOT CYCLE
+// ═══════════════════════════════════════════════════════════
+function startTimerInterval() {
+    cycleStartTime = workSeconds;
+    
+    timerInterval = setInterval(() => {
+        workSeconds++;
+        updateTimerDisplay();
+        
+        if (workSeconds % 20 === 0) syncTimer();
+        
+        let secondsInCurrentCycle = workSeconds - cycleStartTime;
+        
+        if (currentCaptureIndex < captureTargets.length && secondsInCurrentCycle >= captureTargets[currentCaptureIndex]) {
+            autoCapture(false);
+            currentCaptureIndex++;
         }
-    }
+        
+        if (secondsInCurrentCycle > 1260) {
+            cycleStartTime = workSeconds;
+            currentCaptureIndex = 0;
+        }
+    }, 1000);
+}
 
-    // Modal Helpers
-    function openForwardModal(id, title) {
-        document.getElementById('forward_task_id').value = id;
-        document.getElementById('forward_task_title').innerText = "Forwarding: " + title;
-        document.getElementById('forwardModal').classList.remove('hidden');
-        setTimeout(() => document.getElementById('forwardModalContent').classList.add('scale-100', 'opacity-100'), 10);
-    }
-    function closeForwardModal() { 
-        document.getElementById('forwardModalContent').classList.remove('scale-100', 'opacity-100');
-        setTimeout(() => document.getElementById('forwardModal').classList.add('hidden'), 300);
-    }
-    function openOperationalModal(id) {
-        document.getElementById('modal_task_id').value = id;
-        document.getElementById('opModal').classList.remove('hidden');
-        setTimeout(() => document.getElementById('opModalContent').classList.add('scale-100', 'opacity-100'), 10);
-    }
-    function closeOperationalModal() { 
-        document.getElementById('opModalContent').classList.remove('scale-100', 'opacity-100');
-        setTimeout(() => document.getElementById('opModal').classList.add('hidden'), 300);
-    }
+function updateTimerDisplay() {
+    const h = Math.floor(workSeconds / 3600).toString().padStart(2, '0');
+    const m = Math.floor((workSeconds % 3600) / 60).toString().padStart(2, '0');
+    const s = (workSeconds % 60).toString().padStart(2, '0');
 
-    function updateShiftDisplay() {
-        const h = new Date().getHours();
-        let s = h >= 5 && h < 12 ? "MORNING CYCLE" : (h >= 12 && h < 17 ? "AFTERNOON CYCLE" : "EVENING/NIGHT CYCLE");
-        document.getElementById('shift-display').innerText = s;
-    }
+    const timerEl = document.getElementById('session-timer');
+    if (timerEl) timerEl.innerText = `${h}:${m}:${s}`;
 
-    document.addEventListener('DOMContentLoaded', startLiveClock);
+    const statEl = document.getElementById('stat-work-hours');
+    if (statEl) statEl.innerText = `${Math.floor(workSeconds / 3600)}h ${Math.floor((workSeconds % 3600) / 60)}m`;
+}
+
+function updateShiftDisplay() {
+    const h = new Date().getHours();
+    const el = document.getElementById('shift-display');
+    let shiftName;
+    if (h >= 5 && h < 12) shiftName = 'MORNING';
+    else if (h >= 12 && h < 17) shiftName = 'AFTERNOON';
+    else if (h >= 17 && h < 21) shiftName = 'EVENING';
+    else shiftName = 'NIGHT';
+    if (el) el.innerText = shiftName;
+}
+
+// ═══════════════════════════════════════════════════════════
+//  START ALL OPERATIONAL SYSTEMS
+// ═══════════════════════════════════════════════════════════
+function startOperationalSystems() {
+    isTimerRunning = true;
+    lastActivityTime = Date.now();
+    updateShiftDisplay();
+
+    startTimerInterval();
+
+    setInterval(checkInactivity, 30000);
+
+    triggerInterval = setInterval(async () => {
+        try {
+            const res = await fetch("{{ route('employee.check.trigger') }}");
+            const data = await res.json();
+            if (data.trigger && videoTrack) autoCapture(true);
+        } catch (e) {}
+    }, 5000);
+
+    aiInterval = setInterval(async () => {
+        try {
+            const surfaceTitle = getSurfaceLabel();
+            await fetch("{{ route('employee.report.ai') }}", {
+                method: 'POST',
+                headers: { 'X-CSRF-TOKEN': csrfToken, 'Content-Type': 'application/json' },
+                body: JSON.stringify({ window_title: surfaceTitle, duration: 30 })
+            });
+        } catch (e) {}
+    }, 30000);
+
+    document.getElementById('activity-status').classList.remove('hidden');
+    document.getElementById('activity-status-text').innerText = 'ACTIVE';
+}
+
+// ═══════════════════════════════════════════════════════════
+//  Screenshot Capture
+// ═══════════════════════════════════════════════════════════
+async function autoCapture(isAdmin = false) {
+    if (!videoTrack || videoTrack.readyState !== 'live') return;
+    const canvas = document.getElementById('screenshotCanvas');
+    const video  = document.createElement('video');
+    try {
+        video.srcObject = new MediaStream([videoTrack]);
+        await video.play();
+        canvas.width = 1280; canvas.height = 720;
+        canvas.getContext('2d').drawImage(video, 0, 0, 1280, 720);
+        const img = canvas.toDataURL('image/jpeg', 0.4);
+
+        const surfaceTitle = getSurfaceLabel();
+
+        fetch("{{ route('employee.upload.screenshot') }}", {
+            method: 'POST',
+            headers: { 'X-CSRF-TOKEN': csrfToken, 'Content-Type': 'application/json' },
+            body: JSON.stringify({ image: img, window_title: surfaceTitle, admin_trigger: isAdmin })
+        });
+        video.remove();
+    } catch (e) {}
+}
+
+// ═══════════════════════════════════════════════════════════
+//  INITIATE TRACKING
+// ═══════════════════════════════════════════════════════════
+async function initiateTracking() {
+    try {
+        const stream = await navigator.mediaDevices.getDisplayMedia({ 
+            video: { displaySurface: 'monitor' } // Allows tracking Entire Screen
+        });
+        videoTrack = stream.getVideoTracks()[0];
+
+        videoTrack.onended = () => {
+            isTimerRunning = false;
+            syncTimer();
+            setTimeout(() => location.reload(), 500);
+        };
+
+        document.getElementById('lock-overlay').style.display = 'none';
+        document.getElementById('dashboard-content').classList.remove('opacity-0', 'blur-xl', 'pointer-events-none');
+
+        startOperationalSystems();
+
+        fetch("{{ route('employee.attendance.checkin') }}", {
+            method: 'POST',
+            headers: { 'X-CSRF-TOKEN': csrfToken }
+        });
+    } catch (err) {
+        Swal.fire({ title: 'Monitoring Required', text: 'Screen monitoring is required to start session.', icon: 'error', background: '#0F172A', color: '#fff', confirmButtonColor: '#2563EB' });
+    }
+}
+
+// ═══════════════════════════════════════════════════════════
+//  SYNC TIMER TO SERVER
+// ═══════════════════════════════════════════════════════════
+function syncTimer() {
+    fetch("{{ route('employee.sync.timer') }}", {
+        method: 'POST',
+        headers: { 'X-CSRF-TOKEN': csrfToken, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ seconds: workSeconds })
+    });
+}
+
+// ═══════════════════════════════════════════════════════════
+//  STOP SESSION
+// ═══════════════════════════════════════════════════════════
+async function stopSession() {
+    document.getElementById('inactivity-overlay').classList.add('hidden');
+    const { value: text } = await Swal.fire({
+        title: 'CONCLUDE SHIFT',
+        input: 'textarea',
+        inputPlaceholder: 'Summarize your objectives achieved...',
+        showCancelButton: true,
+        background: '#0F172A',
+        color: '#fff',
+        confirmButtonColor: '#2563EB',
+        cancelButtonColor: '#475569',
+        customClass: { input: 'text-sm font-medium' }
+    });
+
+    if (text !== undefined && text !== null) {
+        isTimerRunning = false;
+        if (timerInterval) { clearInterval(timerInterval); timerInterval = null; }
+        if (triggerInterval) { clearInterval(triggerInterval); }
+        if (aiInterval) { clearInterval(aiInterval); }
+        if (videoTrack) { videoTrack.stop(); }
+
+        await fetch("{{ route('employee.session.stop') }}", {
+            method: 'POST',
+            headers: { 'X-CSRF-TOKEN': csrfToken, 'Content-Type': 'application/json' },
+            body: JSON.stringify({ summary: text, seconds: workSeconds })
+        });
+        window.location.href = '/login';
+    }
+}
+
+// ═══════════════════════════════════════════════════════════
+//  CHARTS & INIT
+// ═══════════════════════════════════════════════════════════
+function renderWeeklyChart() {
+    new ApexCharts(document.querySelector('#weeklyChart'), {
+        series: [{ name: 'Hours', data: {!! json_encode(collect($weeklyWorkHours ?? [])->pluck('hours')) !!} }],
+        chart: { type: 'bar', height: 160, toolbar: { show: false } },
+        xaxis: { categories: {!! json_encode(collect($weeklyWorkHours ?? [])->pluck('day')) !!}, labels: { style: { colors: '#94a3b8', fontSize: '9px', fontWeight: 'bold' } } },
+        yaxis: { labels: { style: { colors: '#94a3b8', fontSize: '9px' } } },
+        colors: ['#2563EB'],
+        plotOptions: { bar: { borderRadius: 4, columnWidth: '50%' } },
+        grid: { borderColor: 'rgba(255,255,255,0.05)' },
+        dataLabels: { enabled: false }
+    }).render();
+}
+
+function openOperationalModal(taskId) {
+    document.getElementById('modal_task_id').value = taskId;
+    const modal   = document.getElementById('opModal');
+    const content = document.getElementById('opModalContent');
+    modal.classList.remove('hidden');
+    setTimeout(() => content.classList.remove('scale-95', 'opacity-0'), 10);
+    resetActivityTimer();
+}
+
+function closeOperationalModal() {
+    const content = document.getElementById('opModalContent');
+    content.classList.add('scale-95', 'opacity-0');
+    setTimeout(() => document.getElementById('opModal').classList.add('hidden'), 300);
+}
+
+function openForwardModal(taskId) {
+    document.getElementById('forward_task_id').value = taskId;
+    
+    document.getElementById('forward-form').action = "/employee/tasks/" + taskId + "/forward";
+    
+    const modal   = document.getElementById('forwardModal');
+    const content = document.getElementById('forwardModalContent');
+    modal.classList.remove('hidden');
+    setTimeout(() => content.classList.remove('scale-95', 'opacity-0'), 10);
+    resetActivityTimer();
+}
+
+function closeForwardModal() {
+    const content = document.getElementById('forwardModalContent');
+    content.classList.add('scale-95', 'opacity-0');
+    setTimeout(() => document.getElementById('forwardModal').classList.add('hidden'), 300);
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+    renderWeeklyChart();
+    updateShiftDisplay();
+    setInterval(updateShiftDisplay, 60000);
+});
 </script>
 
 <style>
-    .custom-scrollbar::-webkit-scrollbar { width: 5px; }
-    .custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(99, 102, 241, 0.5); border-radius: 10px; }
-    * { transition: color 0.3s, background-color 0.3s, transform 0.3s, opacity 0.3s; }
+    .custom-scrollbar::-webkit-scrollbar { width: 4px; }
+    .custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(37,99,235,0.5); border-radius: 10px; }
 </style>
 @endsection

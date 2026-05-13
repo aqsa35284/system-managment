@@ -1,349 +1,442 @@
 @extends(auth()->user()->role === 'admin' ? 'layouts.admin' : 'layouts.employee')
 
 @section('content')
-<div class="max-w-7xl mx-auto h-[85vh] flex flex-col lg:flex-row gap-6 p-4 lg:p-0">
+
+{{-- ⭐ Toast Container for Notifications --}}
+<div id="toast-container" class="fixed bottom-6 right-6 z-[9999] flex flex-col gap-3 pointer-events-none"></div>
+
+<div class="max-w-[1600px] mx-auto h-[88vh] flex flex-col lg:flex-row gap-4 p-2 font-sans text-slate-200 bg-[#0B1120]">
     
-    <!-- Sidebar with Chat List -->
-    <div class="w-full lg:w-1/3 h-full bg-white rounded-2xl shadow-xl border border-emerald-100 flex flex-col overflow-hidden">
-        <div class="p-6 border-b border-emerald-100 bg-gradient-to-r from-emerald-600 to-teal-600">
-            <div class="flex items-center justify-between mb-4">
-                <h3 class="text-lg font-bold text-white flex items-center gap-2">
-                    <i class="fas fa-comments"></i> Communication Hub
-                </h3>
-                <span class="bg-white/20 text-white text-xs px-3 py-1 rounded-full font-medium">
-                    {{ $users->count() + 1 }} Active
-                </span>
-            </div>
-            <div class="relative">
-                <input type="text" placeholder="Search conversations..." 
-                       class="w-full bg-white/20 backdrop-blur-sm text-white placeholder-white/70 rounded-lg px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-white/30">
-                <i class="fas fa-search absolute right-3 top-2.5 text-white/70 text-sm"></i>
-            </div>
+    <div class="w-full lg:w-80 h-full bg-[#0F172A] rounded-[2rem] shadow-2xl flex flex-col overflow-hidden border border-blue-900/30">
+        <div class="p-6 bg-gradient-to-br from-blue-600 to-indigo-700">
+            <h3 class="text-white font-black uppercase tracking-widest flex items-center gap-2 text-xs">
+                <i class="fas fa-bolt animate-pulse"></i> Communication Hub
+            </h3>
         </div>
         
-        <div class="flex-1 overflow-y-auto p-4 space-y-2 custom-scrollbar">
-            <!-- Team War Room -->
+        <div class="flex-1 overflow-y-auto p-4 space-y-1 custom-scrollbar">
+            <p class="text-[9px] font-black text-slate-500 uppercase tracking-[0.2em] mb-3 ml-2">Broadcast Nodes</p>
             <div onclick="loadChat(0, 'Team War Room', 'main-office')" id="user-0" 
-                 class="user-row flex items-center gap-3 p-3 rounded-xl cursor-pointer hover:bg-emerald-50 transition-all group">
-                <div class="relative">
-                    <div class="w-12 h-12 bg-gradient-to-br from-emerald-500 to-teal-600 rounded-xl flex items-center justify-center shadow-md group-hover:shadow-lg transition-shadow">
-                        <i class="fas fa-users text-white"></i>
-                    </div>
-                    <span class="absolute bottom-0 right-0 w-3 h-3 bg-green-500 border-2 border-white rounded-full"></span>
+                 class="user-row flex items-center gap-3 p-4 rounded-2xl cursor-pointer hover:bg-white/5 transition-all border border-transparent">
+                <div class="w-10 h-10 bg-blue-500/20 rounded-xl flex items-center justify-center text-blue-400 border border-blue-500/30 shadow-lg">
+                    <i class="fas fa-users-cog"></i>
                 </div>
                 <div class="flex-1 min-w-0">
-                    <div class="flex items-center justify-between">
-                        <p class="text-sm font-semibold text-gray-900 truncate">Team War Room</p>
-                        <span class="text-xs text-gray-500">2:45 PM</span>
-                    </div>
-                    <p class="text-xs text-gray-500 truncate">John: Let's discuss the project...</p>
-                </div>
-                <div class="bg-emerald-500 text-white text-xs w-5 h-5 rounded-full flex items-center justify-center font-bold">
-                    3
+                    <p class="text-[11px] font-black text-slate-200 uppercase">General Ops</p>
                 </div>
             </div>
 
-            <div class="px-3 py-2">
-                <p class="text-xs font-semibold text-gray-400 uppercase tracking-wider">Direct Messages</p>
-            </div>
-
+            <p class="text-[9px] font-black text-slate-500 uppercase tracking-[0.2em] mt-6 mb-3 ml-2">Direct Uplink</p>
             @foreach($users as $user)
             <div onclick="loadChat({{ $user->id }}, '{{ $user->name }}', null)" id="user-{{ $user->id }}" 
-                 class="user-row flex items-center gap-3 p-3 rounded-xl cursor-pointer hover:bg-emerald-50 transition-all group">
+                 class="user-row flex items-center gap-3 p-4 rounded-2xl cursor-pointer hover:bg-white/5 transition-all">
                 <div class="relative">
-                    <div class="w-12 h-12 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white font-bold shadow-md group-hover:shadow-lg transition-shadow">
+                    <div class="w-10 h-10 rounded-xl bg-slate-800 flex items-center justify-center text-white text-xs font-black border border-slate-700">
                         {{ substr($user->name, 0, 1) }}
                     </div>
-                    <span class="absolute bottom-0 right-0 w-3 h-3 {{ rand(0, 1) ? 'bg-green-500' : 'bg-gray-400' }} border-2 border-white rounded-full"></span>
                 </div>
                 <div class="flex-1 min-w-0">
-                    <div class="flex items-center justify-between">
-                        <p class="text-sm font-semibold text-gray-900 truncate">{{ $user->name }}</p>
-                        <span class="text-xs text-gray-500">{{ rand(1, 12) }}:{{ rand(10, 59) }} {{ rand(0, 1) ? 'AM' : 'PM' }}</span>
-                    </div>
-                    <p class="text-xs text-gray-500 truncate">{{ rand(0, 1) ? 'You: ' : '' }}{{ rand(0, 1) ? 'Sure, let me check that' : 'Thanks for the update!' }}</p>
+                    <p class="text-[11px] font-black text-slate-300 uppercase">{{ $user->name }}</p>
                 </div>
-                @if(rand(0, 3) === 1)
-                <div class="bg-emerald-500 text-white text-xs w-5 h-5 rounded-full flex items-center justify-center font-bold">
-                    {{ rand(1, 9) }}
-                </div>
-                @endif
             </div>
             @endforeach
         </div>
     </div>
 
-    <!-- Chat Window -->
-    <div class="flex-1 h-full bg-white rounded-2xl shadow-xl border border-emerald-100 flex flex-col overflow-hidden">
-        <!-- Chat Header -->
-        <div id="chat-header" class="p-4 border-b border-emerald-100 bg-white">
-            <div class="flex items-center justify-between">
+    <div class="flex-1 h-full bg-[#0F172A]/50 rounded-[2.5rem] shadow-2xl border border-blue-900/20 flex flex-col overflow-hidden relative backdrop-blur-sm">
+        
+        <div id="chat-header" class="p-6 border-b border-white/5 bg-[#0F172A]/80 z-10">
+            <div class="flex items-center gap-4">
+                <div id="active-avatar" class="hidden w-12 h-12 rounded-2xl bg-blue-600 flex items-center justify-center text-white font-black border border-blue-400/30"></div>
+                <div>
+                    <h2 id="active-user-name" class="text-sm font-black text-slate-400 uppercase tracking-[0.2em]">Awaiting Signal...</h2>
+                </div>
+            </div>
+        </div>
+
+        <div id="chat-window" class="flex-1 overflow-y-auto p-8 space-y-6 custom-scrollbar bg-[radial-gradient(#1e293b_1px,transparent_1px)] [background-size:32px_32px]">
+            </div>
+
+        <div class="p-6 bg-[#0F172A] border-t border-white/5 relative">
+            <form id="chat-form" onsubmit="event.preventDefault(); sendMessage();">
+                
+                <div id="file-preview-zone" class="hidden mb-4 p-4 bg-blue-600/10 border border-blue-500/30 rounded-2xl flex items-center justify-between">
+                    <span id="file-name-display" class="text-xs font-bold text-blue-200"></span>
+                    <button type="button" onclick="clearFile()" class="text-rose-500 hover:text-rose-400"><i class="fas fa-times-circle"></i></button>
+                </div>
+
                 <div class="flex items-center gap-3">
-                    <div id="active-avatar" class="hidden w-10 h-10 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center text-white font-bold shadow-md"></div>
-                    <div>
-                        <h2 id="active-user-name" class="text-base font-semibold text-gray-400">Select a conversation</h2>
-                        <p id="connection-status" class="hidden text-xs text-green-500 font-medium flex items-center gap-1 mt-0.5">
-                            <span class="w-2 h-2 bg-green-500 rounded-full animate-pulse"></span> 
-                            Active now
-                        </p>
-                    </div>
-                </div>
-                <div class="flex items-center gap-2">
-                    <button class="w-8 h-8 rounded-lg bg-gray-100 hover:bg-gray-200 flex items-center justify-center text-gray-600 transition-colors">
-                        <i class="fas fa-phone text-sm"></i>
-                    </button>
-                    <button class="w-8 h-8 rounded-lg bg-gray-100 hover:bg-gray-200 flex items-center justify-center text-gray-600 transition-colors">
-                        <i class="fas fa-video text-sm"></i>
-                    </button>
-                    <button class="w-8 h-8 rounded-lg bg-gray-100 hover:bg-gray-200 flex items-center justify-center text-gray-600 transition-colors">
-                        <i class="fas fa-ellipsis-v text-sm"></i>
-                    </button>
-                </div>
-            </div>
-        </div>
-
-        <!-- Chat Messages Area -->
-        <div id="chat-window" class="flex-1 overflow-y-auto p-4 bg-gray-50 custom-scrollbar">
-            <div class="h-full flex flex-col items-center justify-center text-center">
-                <div class="w-20 h-20 bg-gray-200 rounded-full flex items-center justify-center mb-4">
-                    <i class="fas fa-comments text-3xl text-gray-400"></i>
-                </div>
-                <p class="text-lg font-semibold text-gray-700 mb-1">Welcome to Chat</p>
-                <p class="text-sm text-gray-500">Select a conversation to start messaging</p>
-            </div>
-        </div>
-
-        <!-- Message Input Area -->
-        <div class="p-4 bg-white border-t border-emerald-100">
-            <div id="typing-indicator" class="hidden text-xs text-gray-500 mb-2 ml-2">
-                <span class="inline-flex">
-                    <span class="animate-pulse">Someone is typing</span>
-                    <span class="flex ml-1">
-                        <span class="animate-bounce">.</span>
-                        <span class="animate-bounce" style="animation-delay: 0.1s">.</span>
-                        <span class="animate-bounce" style="animation-delay: 0.2s">.</span>
-                    </span>
-                </span>
-            </div>
-            
-            <div class="flex items-end gap-2">
-                <button class="w-8 h-8 rounded-lg hover:bg-gray-100 flex items-center justify-center text-gray-500 transition-colors">
-                    <i class="fas fa-paperclip text-sm"></i>
-                </button>
-                
-                <div class="flex-1 relative">
-                    <input type="hidden" id="form_receiver_id" value="">
-                    <input type="hidden" id="form_group_name" value="">
                     
-                    <textarea id="message-input" 
-                              class="w-full bg-gray-100 rounded-xl px-4 py-3 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-emerald-500 max-h-32" 
-                              placeholder="Type a message..."
-                              rows="1"
-                              onkeypress="if(event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); sendMessage(); }"></textarea>
+                    <div id="default-input-area" class="flex flex-1 items-center gap-3 transition-all duration-300">
+                        <label class="w-12 h-12 rounded-full bg-slate-800 flex items-center justify-center text-slate-400 hover:text-blue-400 cursor-pointer">
+                            <input type="file" id="file-input" class="hidden" onchange="handleFileSelect(this)">
+                            <i class="fas fa-paperclip text-xl"></i>
+                        </label>
+                        
+                        <div class="flex-1">
+                            <input type="hidden" id="form_receiver_id" value="">
+                            <input type="hidden" id="form_group_name" value="">
+                            <input type="text" id="message-input" autocomplete="off"
+                                   class="w-full bg-slate-800/50 border border-slate-700 rounded-full px-6 py-3 text-sm text-white placeholder-slate-500 outline-none focus:border-blue-500" 
+                                   placeholder="Type a message...">
+                        </div>
+                    </div>
+
+                    <div id="recording-area" class="hidden flex-1 items-center justify-between bg-rose-500/10 border border-rose-500/30 rounded-full px-6 py-3 transition-all duration-300">
+                        <div class="flex items-center gap-3 text-rose-500 font-bold">
+                            <span class="w-3 h-3 bg-rose-500 rounded-full animate-pulse"></span>
+                            <span id="recording-time">00:00</span>
+                        </div>
+                        <div class="flex gap-6 items-center">
+                            <button type="button" onclick="cancelRecording()" class="text-slate-400 hover:text-rose-500" title="Delete Recording"><i class="fas fa-trash-alt text-xl"></i></button>
+                            <button type="button" onclick="sendRecording()" class="text-emerald-400 hover:text-emerald-300" title="Send Recording"><i class="fas fa-paper-plane text-xl"></i></button>
+                        </div>
+                    </div>
+
+                    <button type="button" id="mic-btn" onclick="startRecording()" class="w-12 h-12 bg-blue-600 hover:bg-blue-500 text-white rounded-full flex items-center justify-center shadow-lg transition-all">
+                        <i id="mic-icon" class="fas fa-microphone text-xl"></i>
+                    </button>
+                    <button type="submit" id="send-btn" class="hidden w-12 h-12 bg-emerald-600 hover:bg-emerald-500 text-white rounded-full flex items-center justify-center shadow-lg transition-all">
+                        <i class="fas fa-paper-plane text-xl"></i>
+                    </button>
+
                 </div>
-                
-                <button class="w-8 h-8 rounded-lg hover:bg-gray-100 flex items-center justify-center text-gray-500 transition-colors">
-                    <i class="fas fa-smile text-sm"></i>
-                </button>
-                
-                <button onclick="sendMessage()" class="w-10 h-10 bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white rounded-xl flex items-center justify-center shadow-md transition-all transform hover:scale-105 active:scale-95">
-                    <i class="fas fa-paper-plane text-sm"></i>
-                </button>
-            </div>
+            </form>
         </div>
     </div>
 </div>
 
 <script>
-    window.UserId = {{ auth()->id() }};
     let activeChatId = null;
     let activeChatGroup = null;
-    
-    function loadChat(id, name, group) {
-        // Update active chat variables
-        activeChatId = id;
-        activeChatGroup = group;
-        
-        // Update form inputs
-        document.getElementById('form_receiver_id').value = (id === 0) ? '' : id;
-        document.getElementById('form_group_name').value = group || '';
-        
-        // Update UI elements
-        document.getElementById('active-user-name').innerText = name;
-        document.getElementById('active-user-name').classList.replace('text-gray-400', 'text-gray-900');
-        
-        if (id === 0) {
-            // War Room
-            document.getElementById('active-avatar').innerHTML = '<i class="fas fa-users"></i>';
-            document.getElementById('active-avatar').className = 'w-10 h-10 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center text-white shadow-md';
+    let selectedFile = null;
+
+    let mediaRecorder;
+    let audioChunks = [];
+    let recordInterval;
+    let seconds = 0;
+
+    const msgInput = document.getElementById('message-input');
+    const defaultArea = document.getElementById('default-input-area');
+    const recArea = document.getElementById('recording-area');
+    const micBtn = document.getElementById('mic-btn');
+    const sendBtn = document.getElementById('send-btn');
+    const timeDisplay = document.getElementById('recording-time');
+
+    msgInput.addEventListener('input', () => {
+        if(msgInput.value.trim() !== '') {
+            micBtn.classList.add('hidden');
+            sendBtn.classList.remove('hidden');
         } else {
-            // Direct message
-            document.getElementById('active-avatar').innerText = name.charAt(0).toUpperCase();
-            document.getElementById('active-avatar').className = 'w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white font-bold shadow-md';
+            micBtn.classList.remove('hidden');
+            sendBtn.classList.add('hidden');
         }
-        
-        document.getElementById('active-avatar').classList.remove('hidden');
-        document.getElementById('connection-status').classList.remove('hidden');
-        
-        // Highlight active user in sidebar
-        document.querySelectorAll('.user-row').forEach(row => {
-            row.classList.remove('bg-emerald-50', 'border-l-4', 'border-emerald-500');
-        });
-        document.getElementById(`user-${id}`).classList.add('bg-emerald-50', 'border-l-4', 'border-emerald-500');
-        
-        refreshChat(true);
+    });
+
+    async function startRecording() {
+        try {
+            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            mediaRecorder = new MediaRecorder(stream);
+            
+            mediaRecorder.start();
+            audioChunks = [];
+            
+            defaultArea.classList.add('hidden');
+            recArea.classList.remove('hidden');
+            micBtn.classList.add('hidden');
+            
+            seconds = 0;
+            timeDisplay.innerText = "00:00";
+            recordInterval = setInterval(() => {
+                seconds++;
+                const mins = String(Math.floor(seconds / 60)).padStart(2, '0');
+                const secs = String(seconds % 60).padStart(2, '0');
+                timeDisplay.innerText = `${mins}:${secs}`;
+            }, 1000);
+
+            mediaRecorder.ondataavailable = e => audioChunks.push(e.data);
+        } catch (err) { alert("Microphone access denied!"); }
+    }
+
+    function cancelRecording() {
+        if(mediaRecorder && mediaRecorder.state === "recording") mediaRecorder.stop();
+        clearInterval(recordInterval);
+        resetUI();
+    }
+
+    function sendRecording() {
+        if(mediaRecorder && mediaRecorder.state === "recording") {
+            mediaRecorder.onstop = () => {
+                window.audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
+                sendMessage(); 
+                resetUI();
+            };
+            mediaRecorder.stop();
+            clearInterval(recordInterval);
+        }
+    }
+
+    function resetUI() {
+        defaultArea.classList.remove('hidden');
+        recArea.classList.add('hidden');
+        msgInput.value = '';
+        micBtn.classList.remove('hidden');
+        sendBtn.classList.add('hidden');
+        window.audioBlob = null;
+        clearFile();
+    }
+
+    function handleFileSelect(input) {
+        if(input.files.length > 0) {
+            selectedFile = input.files[0];
+            document.getElementById('file-name-display').innerText = selectedFile.name;
+            document.getElementById('file-preview-zone').classList.remove('hidden');
+            micBtn.classList.add('hidden');
+            sendBtn.classList.remove('hidden');
+        }
+    }
+
+    function clearFile() {
+        selectedFile = null;
+        document.getElementById('file-input').value = '';
+        document.getElementById('file-preview-zone').classList.add('hidden');
+        if(msgInput.value.trim() === '') {
+            micBtn.classList.remove('hidden');
+            sendBtn.classList.add('hidden');
+        }
+    }
+
+    function formatMessage(text) {
+        if(!text) return '';
+        const urlRegex = /(https?:\/\/[^\s]+)/g;
+        return text.replace(urlRegex, url => `<a href="${url}" target="_blank" class="text-blue-200 underline">${url}</a>`);
     }
 
     async function sendMessage() {
-        const input = document.getElementById('message-input');
         const receiverId = document.getElementById('form_receiver_id').value;
         const groupName = document.getElementById('form_group_name').value;
         
-        if(!input.value.trim()) return;
+        if(!msgInput.value.trim() && !selectedFile && !window.audioBlob) return;
 
-        // Show message immediately for better UX
-        const tempMsg = {
-            sender_id: window.UserId,
-            message: input.value,
-            created_at: new Date().toISOString(),
-            temp: true
-        };
-        
-        // Add message to UI immediately
-        addMessageToWindow(tempMsg);
-        
+        const formData = new FormData();
+        formData.append('message', msgInput.value);
+        if(receiverId) formData.append('receiver_id', receiverId);
+        if(groupName) formData.append('group_name', groupName);
+        if(selectedFile) formData.append('file', selectedFile);
+        if(window.audioBlob) formData.append('voice', window.audioBlob, 'voice_note.webm');
+
+        resetUI();
+
         try {
             const response = await fetch("{{ url('/chat/send') }}", {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': '{{ csrf_token() }}' },
-                body: JSON.stringify({
-                    receiver_id: receiverId,
-                    group_name: groupName,
-                    message: input.value
-                })
+                headers: { 'X-CSRF-TOKEN': '{{ csrf_token() }}' },
+                body: formData
             });
-            
-            if (!response.ok) {
-                throw new Error('Failed to send message');
+            if((await response.json()).success) refreshChat(false);
+        } catch (error) { console.error(error); }
+    }
+
+    async function deleteMsg(id, btn) {
+        if(!confirm('Delete message for everyone?')) return;
+        try {
+            const res = await fetch(`/chat/message/${id}`, {
+                method: 'DELETE',
+                headers: { 'X-CSRF-TOKEN': '{{ csrf_token() }}' }
+            });
+            if((await res.json()).success) {
+                btn.closest('.message-container').remove();
             }
-            
-            // Refresh chat to get the real message with ID
-            refreshChat(false);
-        } catch (error) {
-            console.error('Error sending message:', error);
-            // Show error state in UI
-        }
-        
-        input.value = '';
-        // Reset textarea height
-        input.style.height = 'auto';
+        } catch(e) { console.error(e); }
     }
 
     function addMessageToWindow(msg) {
+        if(document.getElementById(`msg-${msg.id}`)) return;
+
         const win = document.getElementById('chat-window');
-        const isMe = msg.sender_id == window.UserId;
-        const isGroup = activeChatGroup !== '';
+        const isMe = msg.sender_id == {{ auth()->id() }};
         
-        // Remove empty state if this is the first message
-        if (win.querySelector('.flex-col.items-center')) {
-            win.innerHTML = '';
+        let contentHtml = msg.message ? `<p class="text-[13px] leading-relaxed">${formatMessage(msg.message)}</p>` : '';
+        
+        if(msg.voice_path) {
+            contentHtml += `
+                <div class="mt-2 flex items-center gap-2 bg-black/20 rounded-full pr-4">
+                    <audio controls class="h-10 w-[200px] outline-none">
+                        <source src="/storage/${msg.voice_path}" type="audio/webm">
+                    </audio>
+                    <a href="/chat/download/${msg.id}" title="Download Voice Note" class="text-slate-400 hover:text-white"><i class="fas fa-download"></i></a>
+                </div>`;
         }
-        
+
+        if(msg.file_path) {
+            const isImg = msg.file_name.match(/\.(jpg|jpeg|png|gif)$/i);
+            if(isImg) {
+                contentHtml += `
+                    <div class="mt-2 relative group overflow-hidden rounded-xl">
+                        <img src="/storage/${msg.file_path}" class="w-full max-w-[250px]">
+                        <a href="/chat/download/${msg.id}" class="absolute bottom-2 right-2 bg-black/60 text-white w-8 h-8 flex items-center justify-center rounded-full opacity-0 group-hover:opacity-100 transition-opacity"><i class="fas fa-download"></i></a>
+                    </div>`;
+            } else {
+                contentHtml += `
+                    <div class="mt-2 flex items-center gap-3 p-3 bg-black/20 rounded-xl">
+                        <div class="w-10 h-10 bg-blue-500/20 text-blue-400 flex items-center justify-center rounded-lg"><i class="fas fa-file-alt text-xl"></i></div>
+                        <div class="flex-1 overflow-hidden">
+                            <p class="text-xs font-bold truncate">${msg.file_name}</p>
+                        </div>
+                        <a href="/chat/download/${msg.id}" class="text-blue-400 hover:text-blue-300"><i class="fas fa-download text-lg"></i></a>
+                    </div>`;
+            }
+        }
+
+        const deleteBtn = isMe ? `<button onclick="deleteMsg(${msg.id}, this)" class="text-slate-400 hover:text-rose-400 opacity-0 group-hover:opacity-100 transition-opacity" title="Delete"><i class="fas fa-trash-alt text-xs"></i></button>` : '';
+
         const messageHtml = `
-            <div class="flex ${isMe ? 'justify-end' : 'justify-start'} mb-4 message-container">
-                <div class="max-w-[75%] ${isMe ? 'order-2' : 'order-1'}">
-                    ${isGroup && !isMe ? `
-                        <p class="text-xs font-medium text-gray-600 mb-1 ml-2">
-                            ${msg.sender ? msg.sender.name : 'Unknown'}
-                        </p>
-                    ` : ''}
-                    
-                    <div class="p-3 rounded-2xl ${isMe ? 'bg-gradient-to-r from-emerald-500 to-teal-600 text-white rounded-br-sm' : 'bg-white text-gray-800 border border-gray-200 rounded-bl-sm shadow-sm'} ${msg.temp ? 'opacity-70' : ''}">
-                        <p class="text-sm">${msg.message}</p>
-                        <div class="flex items-center justify-end mt-1 gap-1">
-                            <p class="text-xs ${isMe ? 'text-white/70' : 'text-gray-500'}">
-                                ${new Date(msg.created_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
-                            </p>
-                            ${isMe ? `<i class="fas fa-check${msg.temp ? '' : '-double'} text-xs ${msg.temp ? 'text-white/50' : 'text-white/70'}"></i>` : ''}
+            <div id="msg-${msg.id}" class="flex ${isMe ? 'justify-end' : 'justify-start'} mb-4 message-container group animate-in fade-in slide-in-from-bottom-2">
+                ${isMe ? `<div class="mr-3 flex items-center">${deleteBtn}</div>` : ''}
+                <div class="max-w-[70%]">
+                    <div class="p-3 ${isMe ? 'bg-blue-600 text-white rounded-2xl rounded-tr-sm' : 'bg-slate-800 text-slate-200 rounded-2xl rounded-tl-sm'} shadow-md relative">
+                        ${!isMe && activeChatGroup ? `<p class="text-[10px] font-black text-blue-400 mb-1">${msg.sender?.name || 'User'}</p>` : ''}
+                        ${contentHtml}
+                        <div class="text-right mt-1">
+                            <span class="text-[9px] opacity-70">${new Date(msg.created_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
                         </div>
                     </div>
                 </div>
+                ${!isMe ? `<div class="ml-3 flex items-center">${deleteBtn}</div>` : ''}
             </div>`;
         
         win.insertAdjacentHTML('beforeend', messageHtml);
         win.scrollTop = win.scrollHeight;
     }
 
+    function loadChat(id, name, group) {
+        activeChatId = id; activeChatGroup = group;
+        document.getElementById('form_receiver_id').value = (id === 0) ? '' : id;
+        document.getElementById('form_group_name').value = group || '';
+        document.getElementById('active-user-name').innerText = name;
+        document.querySelectorAll('.user-row').forEach(r => r.classList.remove('bg-white/10'));
+        document.getElementById(`user-${id}`).classList.add('bg-white/10');
+        refreshChat(true);
+    }
+
     async function refreshChat(isFirstLoad = false) {
         if (!activeChatId && !activeChatGroup) return;
-        
-        const receiverId = document.getElementById('form_receiver_id').value;
-        const groupName = document.getElementById('form_group_name').value;
-        
         try {
             const response = await fetch("{{ url('/chat/fetch') }}", {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': '{{ csrf_token() }}' },
-                body: JSON.stringify({ receiver_id: receiverId, group_name: groupName })
+                body: JSON.stringify({ 
+                    receiver_id: document.getElementById('form_receiver_id').value, 
+                    group_name: document.getElementById('form_group_name').value 
+                })
+            });
+            const data = await response.json();
+            
+            if(isFirstLoad) {
+                document.getElementById('chat-window').innerHTML = '';
+            }
+
+            let hasNewMsg = false;
+            data.forEach(msg => {
+                if(!document.getElementById(`msg-${msg.id}`)) {
+                    addMessageToWindow(msg);
+                    hasNewMsg = true;
+                }
             });
 
-            const data = await response.json();
-            const win = document.getElementById('chat-window');
-            
-            if (data.length === 0) {
-                // Show empty state
-                win.innerHTML = `
-                    <div class="h-full flex flex-col items-center justify-center text-center">
-                        <div class="w-20 h-20 bg-gray-200 rounded-full flex items-center justify-center mb-4">
-                            <i class="fas fa-inbox text-3xl text-gray-400"></i>
-                        </div>
-                        <p class="text-lg font-semibold text-gray-700 mb-1">No messages yet</p>
-                        <p class="text-sm text-gray-500">Start the conversation with a message</p>
-                    </div>`;
-                return;
+            const currentIds = data.map(m => `msg-${m.id}`);
+            document.querySelectorAll('.message-container').forEach(el => {
+                if(!currentIds.includes(el.id)) {
+                    el.remove();
+                }
+            });
+
+            if(isFirstLoad || hasNewMsg) {
+                document.getElementById('chat-window').scrollTop = document.getElementById('chat-window').scrollHeight;
             }
             
-            win.innerHTML = '';
-            data.forEach(msg => addMessageToWindow(msg));
-            
-            if(isFirstLoad) win.scrollTop = win.scrollHeight;
-        } catch (error) {
-            console.error('Error fetching messages:', error);
-        }
+        } catch (e) {}
     }
 
-    // Auto-refresh chat every 3 seconds
-    setInterval(() => {
-        if (activeChatId || activeChatGroup) {
-            refreshChat(false);
-        }
-    }, 3000);
-    
-    // Auto-resize textarea
-    document.getElementById('message-input').addEventListener('input', function() {
-        this.style.height = 'auto';
-        this.style.height = Math.min(this.scrollHeight, 128) + 'px';
-    });
-    
-    // Simulate typing indicator
-    let typingTimer;
-    document.getElementById('message-input').addEventListener('input', function() {
-        if (this.value.trim()) {
-            document.getElementById('typing-indicator').classList.remove('hidden');
-            clearTimeout(typingTimer);
-            typingTimer = setTimeout(() => {
-                document.getElementById('typing-indicator').classList.add('hidden');
-            }, 1000);
-        } else {
-            document.getElementById('typing-indicator').classList.add('hidden');
-        }
-    });
+    // ⭐ NAYA FIX: Toast Notifications Generator
+    function spawnToast(title, message, icon = 'fa-comment-dots') {
+        const container = document.getElementById('toast-container');
+        if (!container) return;
+
+        try {
+            const audio = new Audio('data:audio/wav;base64,UklGRigAAABXQVZFZm10IBIAAAABAAEARKwAAIhYAQACABAAAABkYXRhAgAAAAEA'); 
+            audio.volume = 0.5; audio.play().catch(()=>{});
+        } catch(e){}
+
+        const toast = document.createElement('div');
+        toast.className = `glass-effect border-l-4 border-blue-500/50 bg-blue-600/20 text-blue-400 rounded-xl p-4 w-80 shadow-[0_10px_30px_rgba(0,0,0,0.5)] pointer-events-auto flex gap-4 items-start toast-enter`;
+        
+        toast.innerHTML = `
+            <div class="mt-0.5 rounded-full p-2 bg-black/30 shadow-inner">
+                <i class="fas ${icon} text-lg"></i>
+            </div>
+            <div class="flex-1">
+                <h4 class="text-xs font-black text-white uppercase tracking-widest mb-1">${title}</h4>
+                <p class="text-[11px] text-slate-300 font-medium leading-relaxed">${message}</p>
+            </div>
+            <button onclick="this.parentElement.remove()" class="text-slate-500 hover:text-white transition-colors">
+                <i class="fas fa-times"></i>
+            </button>
+        `;
+
+        container.appendChild(toast);
+
+        setTimeout(() => {
+            toast.classList.replace('toast-enter', 'toast-leave');
+            setTimeout(() => toast.remove(), 400);
+        }, 6000);
+    }
+
+    // ⭐ NAYA FIX: Global Notification Poller (Page load hote hi aur phir har 5s baad)
+    let lastMessageCount = 0;
+    function checkSystemAlerts() {
+        fetch("{{ url('/chat/unread-count') }}")
+        .then(res => res.json())
+        .then(data => {
+            if (data.count > 0) {
+                // Toast sirf tab show karein agar naya message aaya hai aur user uski chat me nahi hai
+                if (data.count > lastMessageCount) {
+                    spawnToast(
+                        'Incoming Transmission', 
+                        `You have a new secure message from <b class="text-white">${data.sender_name}</b>.`
+                    );
+                }
+                lastMessageCount = data.count;
+            } else {
+                lastMessageCount = 0;
+            }
+        }).catch(e => {});
+    }
+
+    // Timing Setup
+    setInterval(() => { if (activeChatId || activeChatGroup) refreshChat(false); }, 5000);
+
+    // Chat refresh aur alert system ko thora alag time pe run kiya gaya hai taake load na pare
+    setTimeout(() => {
+        checkSystemAlerts();
+        setInterval(checkSystemAlerts, 5000);
+    }, 2000);
 </script>
 
 <style>
-    .custom-scrollbar::-webkit-scrollbar { width: 6px; }
-    .custom-scrollbar::-webkit-scrollbar-track { background: #f1f1f1; border-radius: 10px; }
-    .custom-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
-    .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+    .custom-scrollbar::-webkit-scrollbar { width: 5px; }
+    .custom-scrollbar::-webkit-scrollbar-thumb { background: #475569; border-radius: 10px; }
+    .glass-effect { background: rgba(255, 255, 255, 0.05); backdrop-filter: blur(10px); border: 1px solid rgba(255, 255, 255, 0.1); }
+    
+    @keyframes toast-slide-in {
+        0% { transform: translateX(100%); opacity: 0; }
+        100% { transform: translateX(0); opacity: 1; }
+    }
+    @keyframes toast-slide-out {
+        0% { transform: translateX(0); opacity: 1; }
+        100% { transform: translateX(100%); opacity: 0; }
+    }
+    .toast-enter { animation: toast-slide-in 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards; }
+    .toast-leave { animation: toast-slide-out 0.4s ease-in forwards; }
 </style>
 @endsection

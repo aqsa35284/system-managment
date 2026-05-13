@@ -5,116 +5,95 @@ namespace App\Http\Controllers\Employee;
 use App\Http\Controllers\Controller;
 use App\Models\Attendance;
 use Illuminate\Http\Request;
-use Carbon\Carbon;
 use Illuminate\Support\Facades\Auth;
+use Carbon\Carbon;
 
 class AttendanceController extends Controller
 {
+    protected $timezone = 'Asia/Karachi';
+
     /**
-     * Display Personal Attendance History
+     * Display Attendance Logs
      */
     public function index()
     {
-        $user = Auth::user();
-        
-        // Latest history with pagination
-        $attendances = Attendance::where('user_id', $user->id)
-                                 ->orderBy('date', 'desc')
-                                 ->paginate(10);
+        // Variable name 'attendances' use kiya hai taake aapki blade file se match kare
+        $attendances = Attendance::where('user_id', Auth::id())
+            ->orderByDesc('date')
+            ->orderByDesc('check_in')
+            ->paginate(15);
 
-        return view('employee.attendance.index', compact('attendances', 'user'));
+       return view('employee.attendance.index', compact('attendances'));
     }
 
     /**
-     * 🟢 CHECK-IN LOGIC
+     * Handle Check-In (Advanced Logic)
      */
-    public function checkIn(Request $request)
+    public function checkIn()
     {
-        $user = Auth::user();
-        $today = Carbon::today()->toDateString();
+        $today = Carbon::today($this->timezone);
+        $now   = Carbon::now($this->timezone);
+        $userId = Auth::id();
 
-        $activeSession = Attendance::where('user_id', $user->id)
-                                    ->whereNull('check_out')
-                                    ->whereDate('date', $today)
-                                    ->first();
+        // ✅ FIX: Pehle check karo ke kya aaj ka koi active session (Check-out null) pehle se mojud hai?
+        $existingSession = Attendance::where('user_id', $userId)
+            ->whereDate('date', $today)
+            ->whereNull('check_out')
+            ->first();
 
-        if ($activeSession) {
+        if ($existingSession) {
+            // Agar session mojud hai toh naya create na karo, usi ko continue karo
             return response()->json([
-                'success' => true, // Success isliye taake dashboard lock na ho
-                'message' => 'Node connection resumed.'
+                'success' => true, 
+                'message' => 'Session restored', 
+                'work_time' => $existingSession->work_time
             ]);
         }
 
-        $now = Carbon::now();
-        
-        $attendance = Attendance::create([
-            'user_id' => $user->id,
-            'date' => $today,
-            'check_in' => $now,
-            'shift' => Attendance::getShiftName($now),
-            'status' => 'present',
-            'work_time' => 0 // Initial seconds
+        // Agar koi active session nahi hai, tab naya create karo
+        Attendance::create([
+            'user_id'   => $userId,
+            'date'      => $today->toDateString(),
+            'check_in'  => $now->format('H:i:s'),
+            'work_time' => 0,
+            'status'    => 'present', // Status add kar diya
         ]);
 
-        return response()->json([
-            'success' => true, 
-            'message' => 'System Access Granted. Shift: ' . $attendance->shift
-        ]);
+        return response()->json(['success' => true, 'message' => 'New session started']);
     }
 
     /**
-     * 🔴 CHECK-OUT LOGIC
+     * Handle Check-Out
      */
-    public function checkOut(Request $request)
+    public function checkOut()
     {
-        $user = Auth::user();
-        
-        $attendance = Attendance::where('user_id', $user->id)
-                                ->whereNull('check_out')
-                                ->latest()
-                                ->first();
+        $today = Carbon::today($this->timezone);
+        $userId = Auth::id();
 
-        if (!$attendance) {
-            return response()->json(['success' => false, 'message' => 'No active session detected.']);
+        // Sirf wahi record update karo jo aaj ka hai aur check_out null hai
+        $att = Attendance::where('user_id', $userId)
+            ->whereDate('date', $today)
+            ->whereNull('check_out')
+            ->latest()
+            ->first();
+
+        if ($att) {
+            $att->update([
+                'check_out' => Carbon::now($this->timezone)->format('H:i:s'),
+                'status'    => 'offline',
+            ]);
+            return response()->json(['success' => true, 'message' => 'Checked out successfully']);
         }
 
-        $checkOut = Carbon::now();
-        
-        // ⭐ Precise Hours Calculation from work_time (seconds)
-        // Kyunki hum timer sync kar rahe hain, toh work_time hi accurate hours dega
-        $totalHours = $attendance->work_time / 3600;
-
-        $attendance->update([
-            'check_out' => $checkOut,
-            'total_hours' => round($totalHours, 2),
-            'status' => 'offline'
-        ]);
-
-        return response()->json([
-            'success' => true, 
-            'message' => 'Session Terminated. Final Hours: ' . round($totalHours, 2)
-        ]);
+        return response()->json(['success' => false, 'message' => 'No active session found']);
     }
 
     /**
-     * 🛰️ SILENT MONITORING LOGIC (Idle/Present)
+     * Silent Sync for Work Time (Backend reinforcement)
      */
     public function reportIdle(Request $request)
     {
-        $attendance = Attendance::where('user_id', Auth::id())
-                                ->whereNull('check_out')
-                                ->whereDate('date', Carbon::today())
-                                ->first();
-
-        if ($attendance) {
-            // Sirf status update karega (idle ya present)
-            $attendance->update([
-                'status' => $request->status 
-            ]);
-
-            return response()->json(['success' => true]);
-        }
-
-        return response()->json(['success' => false]);
+        // Agar aap future mein idle time detect karna chahen toh yahan logic aayegi
+        return response()->json(['ok' => true]);
     }
 }

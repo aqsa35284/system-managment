@@ -80,7 +80,7 @@
                             </td>
                             <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                                 <div class="flex justify-end items-center space-x-3">
-                                    {{-- ⭐ ADDED: REVIEW BUTTON --}}
+                                    {{-- ⭐ REVIEW BUTTON --}}
                                     <button onclick="openReviewModal({{ $employee->id }}, '{{ $employee->name }}')" 
                                             class="text-emerald-500 hover:text-emerald-700 transition-colors" title="Submit Technical Review">
                                         <i class="fas fa-star-half-alt text-lg"></i>
@@ -122,7 +122,8 @@
             </button>
         </div>
 
-        <form action="{{ route('admin.feedback.store') }}" method="POST" class="p-8 space-y-6">
+        {{-- ⭐ FIX: Added button loader to prevent double submission --}}
+        <form action="{{ route('admin.feedback.store') }}" method="POST" class="p-8 space-y-6" onsubmit="this.querySelector('button[type=submit]').disabled = true; this.querySelector('button[type=submit]').innerHTML = 'Transmitting...';">
             @csrf
             <input type="hidden" name="employee_id" id="modal_user_id">
             <input type="hidden" name="task_id" value="0">
@@ -157,12 +158,48 @@
     </div>
 </div>
 
+{{-- ⭐ SweetAlert2 & Popup Logic --}}
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 <script>
+    // Show Toast Notification when Employee is Created/Updated/Deleted
+    @if(session('success'))
+        document.addEventListener('DOMContentLoaded', () => {
+            Swal.fire({
+                toast: true,
+                position: 'top-end',
+                showConfirmButton: false,
+                timer: 4000,
+                timerProgressBar: true,
+                icon: 'success',
+                title: "{{ session('success') }}",
+                background: '#ffffff',
+                color: '#1e293b'
+            });
+        });
+    @endif
+
+    @if(session('error'))
+        document.addEventListener('DOMContentLoaded', () => {
+            Swal.fire({
+                toast: true,
+                position: 'top-end',
+                showConfirmButton: false,
+                timer: 4000,
+                timerProgressBar: true,
+                icon: 'error',
+                title: "{{ session('error') }}",
+                background: '#ffffff',
+                color: '#1e293b'
+            });
+        });
+    @endif
+
     function openReviewModal(id, name) {
         document.getElementById('modal_user_id').value = id;
         document.getElementById('modal_user_name').innerText = name;
         document.getElementById('reviewModal').classList.remove('hidden');
     }
+    
     function closeReviewModal() {
         document.getElementById('reviewModal').classList.add('hidden');
     }

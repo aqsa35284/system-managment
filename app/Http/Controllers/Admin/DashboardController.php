@@ -3,152 +3,343 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
-use App\Models\User;
-use App\Models\Project;
-use App\Models\Department;
-use App\Models\Task;
-use App\Models\Attendance;
-use App\Models\Screenshot; 
-use App\Models\AiUsageLog; 
-use App\Models\AdminFeedback; 
-use App\Models\EmployeeFeedback; 
-use App\Models\ShiftReport; 
+use App\Models\{User, Task, Attendance, Screenshot, AiUsageLog, ShiftReport};
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\{Storage};
 use Carbon\Carbon;
-use Illuminate\Support\Facades\Schema;
-use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Storage;
 
 class DashboardController extends Controller
 {
+    // ─────────────────────────────────────────────────────────────
+    // MAIN ADMIN DASHBOARD
+    // ─────────────────────────────────────────────────────────────
     public function index()
     {
-        // ⭐ 1. TIMEZONE & DATE SETUP
-        $today = Carbon::today();
-        $now = Carbon::now();
+        $timezone = 'Asia/Karachi';
+        $today    = Carbon::today($timezone);
 
-        // ⭐ 2. FLEET & NODE STATS
-        $totalEmployees = User::where('role', 'employee')->count();
-        $activeEmployees = User::where('role', 'employee')->where('status', 'active')->count();
-        $totalDepartments = Schema::hasTable('departments') ? Department::count() : 0;
+        // ── All employees ─────────────────────────────────────────
+        $employees = User::with('department')
+            ->where('role', 'employee')
+            ->get();
 
-        // ⭐ 3. MISSION & PROJECT STATS
-        $activeProjects = Schema::hasTable('projects') ? Project::where('status', 'active')->count() : 0;
-        $pendingProjects = Schema::hasTable('projects') ? Project::where('status', 'pending')->count() : 0;
-        $recentProjects = Schema::hasTable('projects') ? Project::latest()->take(5)->get() : collect();
+        $totalEmployees = $employees->count();
 
-        // ⭐ 4. OBJECTIVE (TASK) STATS
-        $totalTasks = Schema::hasTable('tasks') ? Task::count() : 0;
-        $completedTasks = Schema::hasTable('tasks') ? Task::where('status', 'completed')->count() : 0;
-        $recentTasks = Schema::hasTable('tasks') ? Task::with(['user', 'project'])->latest()->take(10)->get() : collect();
+        // ── Online employees (have open attendance today, updated in last 5 min) ──
+        //  FIX: Removed $timezone from now() so it matches default Laravel Database Timezone
+        $onlineEmployeeIds = Attendance::where('date', $today->toDateString())
+            ->whereNull('check_out')
+            ->where('updated_at', '>=', now()->subMinutes(5)) 
+            ->pluck('user_id')
+            ->toArray();
 
-        // 🚀 5. TASK PROGRESS HEATMAP LOGIC
-        $heatmapDays = [];
-        $heatmapCounts = [];
-        if (Schema::hasTable('tasks')) {
-            for ($i = 6; $i >= 0; $i--) {
-                $date = Carbon::now()->subDays($i);
-                $heatmapDays[] = $date->format('D'); 
-                $count = Task::whereDate('updated_at', $date->toDateString())->where('status', 'completed')->count();
-                $heatmapCounts[] = $count;
-            }
+        $onlineCount = count($onlineEmployeeIds);
+
+        // ── Active Tasks (not completed) ──────────────────────────
+        $activeTasks  = Task::whereNotIn('status', ['completed'])->count();
+        $pendingTasks = Task::where('status', 'to_do')->count();
+
+        // ── Today's screenshots (pulses) ──────────────────────────
+        $todayPulses = Screenshot::whereDate('created_at', $today)->count();
+
+        // ── Today's AI usage summary (top tools) ──────────────────
+        $todayAiSummary = AiUsageLog::whereDate('log_date', $today)
+            ->where('ai_tool', '!=', 'IDLE')
+            ->selectRaw('ai_tool, COALESCE(SUM(duration_seconds), 0) as total_seconds, COUNT(DISTINCT user_id) as user_count')
+            ->groupBy('ai_tool')
+            ->orderByDesc('total_seconds')
+            ->take(6)
+            ->get();
+
+        // ── Social media today ────────────────────────────────────
+        $socialTools   = ['YOUTUBE', 'FACEBOOK', 'INSTAGRAM', 'TIKTOK', 'WHATSAPP', 'TWITTER', 'NETFLIX', 'SNAPCHAT'];
+        $socialRecord  = AiUsageLog::whereDate('log_date', $today)
+            ->whereIn('ai_tool', $socialTools)
+            ->selectRaw('COUNT(DISTINCT user_id) as users, COALESCE(SUM(duration_seconds), 0) as seconds')
+            ->first();
+
+        $socialToday = (object) [
+            'users'   => $socialRecord->users ?? 0,
+            'seconds' => $socialRecord->seconds ?? 0
+        ];
+
+        // ── Per-employee live status ───────────────────────────────
+        $employeeStatus = [];
+        foreach ($employees as $emp) {
+            $isOnline = in_array($emp->id, $onlineEmployeeIds);
+
+            $att = Attendance::where('user_id', $emp->id)
+                ->where('date', $today->toDateString())
+                ->latest('updated_at')
+                ->first();
+
+            $latestSnap = Screenshot::where('user_id', $emp->id)
+                ->whereDate('created_at', $today)
+                ->latest()
+                ->first();
+
+            $empAiToday = AiUsageLog::where('user_id', $emp->id)
+                ->whereDate('log_date', $today)
+                ->where('ai_tool', '!=', 'IDLE')
+                ->pluck('ai_tool')
+                ->toArray();
+
+            $empSocial = AiUsageLog::where('user_id', $emp->id)
+                ->whereDate('log_date', $today)
+                ->whereIn('ai_tool', $socialTools)
+                ->exists();
+
+            $empActiveTasks = Task::where('user_id', $emp->id)
+                ->whereNotIn('status', ['completed'])
+                ->count();
+
+            $employeeStatus[] = [
+                'employee'       => $emp,
+                'is_online'      => $isOnline,
+                'work_seconds'   => $att ? $att->work_time : 0,
+                'check_in'       => $att ? $att->check_in : null,
+                'latest_snap'    => $latestSnap,
+                'ai_tools'       => $empAiToday,
+                'social_alert'   => $empSocial,
+                'active_tasks'   => $empActiveTasks,
+            ];
         }
 
-        // 🚀 6. LIVE TELEMETRY & PERFORMANCE
-        $liveAttendance = collect();
-        $employeePerformance = collect();
-        if (Schema::hasTable('attendances')) {
-            $liveAttendance = Attendance::with(['user.department'])
-                                ->whereDate('date', $today)
-                                ->whereNull('check_out') 
-                                ->latest('updated_at')
-                                ->get();
-            
-            $employeePerformance = $liveAttendance->map(function($att) {
-                $latestSnap = Screenshot::where('user_id', $att->user_id)->whereDate('created_at', Carbon::today())->latest()->first();
-                $totalSeconds = $att->work_time ?? 0; 
-                $h = floor($totalSeconds / 3600);
-                $m = floor(($totalSeconds % 3600) / 60);
-                $isSignalActive = Carbon::parse($att->updated_at)->diffInMinutes(now()) < 5;
+        // Sort: online first, then offline
+        usort($employeeStatus, fn($a, $b) => $b['is_online'] <=> $a['is_online']);
 
-                return (object)[
-                    'user_id'           => $att->user_id,
-                    'name'              => $att->user->name ?? 'Unknown Operator',
-                    'is_online'         => $isSignalActive,
-                    'watch_time'        => "{$h}h {$m}m",
-                    'last_screenshot'   => $latestSnap ? $latestSnap->image_path : null,
-                    'last_window'       => $latestSnap ? $latestSnap->window_title : 'Scanning...',
-                    'user'              => $att->user,
-                ];
-            });
+        // ── Latest 6 screenshots across all employees ──────────────
+        $liveScreenshots = Screenshot::with('user')
+            ->whereDate('created_at', $today)
+            ->latest()
+            ->take(6)
+            ->get();
+
+        // ── Weekly work hours chart (all employees aggregate) ──────
+        $weeklyData = [];
+        for ($i = 6; $i >= 0; $i--) {
+            $date  = Carbon::now($timezone)->subDays($i);
+            $secs  = Attendance::whereDate('date', $date->toDateString())->sum('work_time') ?: 0;
+            $weeklyData[] = [
+                'day'   => $date->format('D'),
+                'hours' => round($secs / 3600, 1),
+            ];
         }
 
-        // 🛡️ 7. SECURITY BLACKLIST MONITORING
-        $blacklist = ['facebook', 'youtube', 'netflix', 'instagram', 'whatsapp', 'tiktok'];
-        $securityAlerts = [];
-        foreach ($employeePerformance as $perf) {
-            if (isset($perf->last_window)) {
-                $windowTitle = strtolower($perf->last_window);
-                foreach ($blacklist as $site) {
-                    if (str_contains($windowTitle, $site)) {
-                        $securityAlerts[] = (object)[
-                            'operator' => $perf->name,
-                            'violation' => $perf->last_window,
-                            'time' => now()->format('H:i'),
-                            'user_id' => $perf->user_id
-                        ];
-                        break; 
-                    }
-                }
-            }
-        }
+        // ── Shift reports (last 7 days) ────────────────────────────
+        $shiftSummary = ShiftReport::with('user')
+            ->where('report_date', '>=', Carbon::now($timezone)->subDays(7)->toDateString())
+            ->orderByDesc('report_date')
+            ->take(10)
+            ->get();
 
-        // 🚀 8. AI COMPLIANCE STATS
-        $globalAiStats = ['work' => 100, 'ai_tool' => 0];
-        $aiToolBreakdown = collect();
-        if (Schema::hasTable('ai_usage_logs')) {
-            $aiSeconds = AiUsageLog::whereDate('log_date', $today)->sum('duration_seconds') ?? 0;
-            $totalWorkSeconds = Attendance::whereDate('date', $today)->sum('work_time') ?? 0;
-            $aiPercentage = $totalWorkSeconds > 0 ? min(round(($aiSeconds / $totalWorkSeconds) * 100, 1), 100) : 0;
-            $globalAiStats = ['work' => 100 - $aiPercentage, 'ai_tool' => $aiPercentage];
-            $aiToolBreakdown = AiUsageLog::whereDate('log_date', $today)
-                                ->select('ai_tool', DB::raw('SUM(duration_seconds) as total_time'))
-                                ->groupBy('ai_tool')->orderBy('total_time', 'desc')->get();
-        }
-
-        // ✨ 9. DAILY SUMMARIES (Fix: Employee Reports Fetching)
-        // Employee jo summaries bhej raha hai stop session par, wo yahan fetch hongi
-        $shiftReports = ShiftReport::with('user')
-                            ->whereDate('report_date', $today)
-                            ->latest()
-                            ->get();
-
-        $adminFeedbacks = AdminFeedback::with('employee')->latest()->take(10)->get();
-        $employeeFeedbacks = EmployeeFeedback::with(['user', 'task'])->latest()->take(10)->get();
+        // ── Tasks overview ─────────────────────────────────────────
+        $tasksByStatus = Task::selectRaw('status, COUNT(*) as count')
+            ->groupBy('status')
+            ->get()
+            ->pluck('count', 'status')
+            ->toArray();
 
         return view('admin.dashboard', compact(
-            'totalEmployees', 'activeEmployees', 'activeProjects', 'pendingProjects', 
-            'totalTasks', 'completedTasks', 'totalDepartments', 'recentProjects', 
-            'recentTasks', 'employeePerformance', 'globalAiStats', 'aiToolBreakdown',
-            'adminFeedbacks', 'employeeFeedbacks', 'shiftReports', // ⭐ Added shiftReports
-            'heatmapDays', 'heatmapCounts', 'securityAlerts'
+            'totalEmployees',
+            'onlineCount',
+            'onlineEmployeeIds',
+            'activeTasks',
+            'pendingTasks',
+            'todayPulses',
+            'todayAiSummary',
+            'socialToday',
+            'employeeStatus',
+            'liveScreenshots',
+            'weeklyData',
+            'shiftSummary',
+            'tasksByStatus'
         ));
     }
 
-    public function shiftIntel()
+    // ─────────────────────────────────────────────────────────────
+    // LIVE SCREENSHOTS JSON
+    // ─────────────────────────────────────────────────────────────
+    public function liveScreenshots()
     {
-        $reports = ShiftReport::with('user')->latest()->paginate(15);
-        return view('admin.reports.shifts', compact('reports'));
+        $timezone = 'Asia/Karachi';
+        $today    = Carbon::today($timezone);
+
+        $shots = Screenshot::with('user')
+            ->whereDate('created_at', $today)
+            ->latest()
+            ->take(12)
+            ->get()
+            ->map(fn($s) => [
+                'id'           => $s->id,
+                'user_name'    => $s->user->name ?? 'Unknown',
+                'image_url'    => asset('storage/' . $s->image_path),
+                'window_title' => $s->window_title ?? 'No title',
+                'is_admin'     => (bool) $s->triggered_by_admin,
+                'captured_at'  => $s->created_at->diffForHumans(),
+            ]);
+
+        return response()->json($shots);
     }
 
+    // ─────────────────────────────────────────────────────────────
+    // LIVE EMPLOYEE STATUS JSON
+    // ─────────────────────────────────────────────────────────────
+    public function liveEmployeeStatus()
+    {
+        $timezone    = 'Asia/Karachi';
+        $today       = Carbon::today($timezone);
+        $socialTools = ['YOUTUBE', 'FACEBOOK', 'INSTAGRAM', 'TIKTOK', 'WHATSAPP', 'TWITTER', 'NETFLIX', 'SNAPCHAT'];
+
+        //  FIX: Removed $timezone from now() here as well
+        $onlineEmployeeIds = Attendance::where('date', $today->toDateString())
+            ->whereNull('check_out')
+            ->where('updated_at', '>=', now()->subMinutes(5))
+            ->pluck('user_id')
+            ->toArray();
+
+        $data = User::where('role', 'employee')
+            ->get()
+            ->map(function ($emp) use ($onlineEmployeeIds, $today, $socialTools) {
+                $isOnline = in_array($emp->id, $onlineEmployeeIds);
+
+                $att = Attendance::where('user_id', $emp->id)
+                    ->where('date', $today->toDateString())
+                    ->latest('updated_at')
+                    ->first();
+
+                $latestSnap = Screenshot::where('user_id', $emp->id)
+                    ->whereDate('created_at', $today)
+                    ->latest()
+                    ->first();
+
+                $empAiToday = AiUsageLog::where('user_id', $emp->id)
+                    ->whereDate('log_date', $today)
+                    ->where('ai_tool', '!=', 'IDLE')
+                    ->pluck('ai_tool')
+                    ->toArray();
+
+                $empSocial = AiUsageLog::where('user_id', $emp->id)
+                    ->whereDate('log_date', $today)
+                    ->whereIn('ai_tool', $socialTools)
+                    ->exists();
+
+                return [
+                    'id'           => $emp->id,
+                    'is_online'    => $isOnline,
+                    'work_seconds' => $att ? $att->work_time : 0,
+                    'check_in'     => $att && $att->check_in ? $att->check_in : null,
+                    'ai_tools'     => $empAiToday,
+                    'social_alert' => $empSocial,
+                    'latest_snap'  => $latestSnap ? [
+                        'url'   => asset('storage/' . $latestSnap->image_path),
+                        'title' => $latestSnap->window_title ?? 'No title',
+                        'time'  => $latestSnap->created_at->diffForHumans(),
+                    ] : null,
+                ];
+            });
+
+        return response()->json($data);
+    }
+
+    // ─────────────────────────────────────────────────────────────
+    // AI HEATMAP JSON
+    // ─────────────────────────────────────────────────────────────
+    public function aiHeatmap()
+    {
+        $timezone    = 'Asia/Karachi';
+        $today       = Carbon::today($timezone)->toDateString();
+        $socialTools = ['YOUTUBE', 'FACEBOOK', 'INSTAGRAM', 'TIKTOK', 'WHATSAPP', 'TWITTER', 'NETFLIX', 'SNAPCHAT'];
+
+        $data = User::where('role', 'employee')
+            ->with(['aiUsageLogs' => function ($q) use ($today) {
+                $q->whereDate('log_date', $today)->where('ai_tool', '!=', 'IDLE');
+            }])
+            ->get()
+            ->map(function ($emp) use ($socialTools) {
+                $aiTools     = $emp->aiUsageLogs->whereNotIn('ai_tool', $socialTools);
+                $socialLogs  = $emp->aiUsageLogs->whereIn('ai_tool', $socialTools);
+                return [
+                    'id'             => $emp->id,
+                    'name'           => $emp->name,
+                    'ai_seconds'     => $aiTools->sum('duration_seconds'),
+                    'social_seconds' => $socialLogs->sum('duration_seconds'),
+                    'ai_tools'       => $aiTools->pluck('ai_tool')->unique()->values(),
+                    'social_tools'   => $socialLogs->pluck('ai_tool')->unique()->values(),
+                ];
+            });
+
+        return response()->json($data);
+    }
+
+    // ─────────────────────────────────────────────────────────────
+    // EMPLOYEE AI ACTIVITY JSON
+    // ─────────────────────────────────────────────────────────────
+    public function employeeAiActivity($id)
+    {
+        $timezone = 'Asia/Karachi';
+        $today    = Carbon::today($timezone)->toDateString();
+
+        $logs = AiUsageLog::where('user_id', $id)
+            ->whereDate('log_date', $today)
+            ->where('ai_tool', '!=', 'IDLE')
+            ->get()
+            ->map(fn($l) => [
+                'tool'    => $l->ai_tool,
+                'minutes' => round($l->duration_seconds / 60),
+                'title'   => $l->activity_title,
+            ]);
+
+        return response()->json($logs);
+    }
+
+    // ─────────────────────────────────────────────────────────────
+    // SHIFT INTEL PAGE
+    // ─────────────────────────────────────────────────────────────
+    public function shiftIntel(Request $request)
+    {
+        $timezone = 'Asia/Karachi';
+        $period   = $request->get('period', 'today');
+        $today    = Carbon::today($timezone);
+
+        $query = ShiftReport::with('user');
+
+        switch ($period) {
+            case 'weekly':
+                $query->whereBetween('report_date', [
+                    Carbon::now($timezone)->startOfWeek()->toDateString(),
+                    Carbon::now($timezone)->endOfWeek()->toDateString(),
+                ]);
+                break;
+            case 'monthly':
+                $query->whereMonth('report_date', $today->month)
+                      ->whereYear('report_date',  $today->year);
+                break;
+            case 'yearly':
+                $query->whereYear('report_date', $today->year);
+                break;
+            default:
+                $query->where('report_date', $today->toDateString());
+        }
+
+        $reports = $query->orderByDesc('report_date')->paginate(20);
+
+        return view('admin.reports.shifts', compact('reports', 'period'));
+    }
+
+    // ─────────────────────────────────────────────────────────────
+    // DELETE SCREENSHOT
+    // ─────────────────────────────────────────────────────────────
     public function destroyScreenshot($id)
     {
-        try {
-            $screenshot = Screenshot::findOrFail($id);
-            if ($screenshot->image_path) Storage::disk('public')->delete($screenshot->image_path);
-            $screenshot->delete();
-            return response()->json(['success' => true]);
-        } catch (\Exception $e) {
-            return response()->json(['success' => false], 500);
+        $shot = Screenshot::findOrFail($id);
+
+        if (Storage::disk('public')->exists($shot->image_path)) {
+            Storage::disk('public')->delete($shot->image_path);
         }
+
+        $shot->delete();
+
+        return response()->json(['success' => true, 'message' => 'Pulse terminated.']);
     }
 }
