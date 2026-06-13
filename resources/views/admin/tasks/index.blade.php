@@ -1,127 +1,220 @@
 @extends('layouts.admin')
 
 @section('content')
-<div class="min-h-screen bg-[#0B1120] p-6 md:p-10 text-slate-200 font-sans">
-    <div class="max-w-[1600px] mx-auto space-y-8">
-
-        {{-- ═══════════════════════════════════════════════════════
-             HEADER SECTION
-        ═══════════════════════════════════════════════════════ --}}
-        <div class="flex flex-col md:flex-row justify-between items-start md:items-end pb-6 border-b border-slate-800 gap-4">
-            <div>
-                <p class="text-[10px] text-indigo-500 font-black tracking-[0.3em] uppercase mb-2 flex items-center gap-2">
-                    <i class="fas fa-layer-group animate-pulse"></i> Project & Task Control
-                </p>
-                <h1 class="text-4xl font-black text-white uppercase tracking-widest">Task Board</h1>
-                <p class="text-slate-400 text-[10px] mt-2 uppercase tracking-[0.2em] font-bold">Monitor Fleet Objectives & Deadlines</p>
+ <link rel="icon" type="image/jpeg" href="{{ asset('storage/logo/Favicon.png') }}">
+<div class="p-6 md:p-10 bg-[#010717] min-h-screen font-sans text-[#eaeef2]">
+    <div class="max-w-[1600px] mx-auto space-y-6">
+        
+        {{-- Header Section --}}
+        <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center pb-6 border-b border-[#d2a63d]/20 gap-4">
+            <div class="flex items-center gap-5">
+                <a href="{{ route('admin.dashboard') }}" class="flex items-center justify-center w-12 h-12 rounded-xl bg-[#030712] border border-[#d2a63d]/30 text-[#d2a63d] hover:bg-[#d2a63d] hover:text-[#010717] transition-all shadow-[0_0_15px_rgba(210,166,61,0.15)] group" title="Back to Dashboard">
+                    <i class="fas fa-arrow-left group-hover:-translate-x-1 transition-transform"></i>
+                </a>
+                <div>
+                    <h2 class="text-3xl font-black text-white uppercase tracking-widest">Operational <span class="text-[#d2a63d]">Tasks</span></h2>
+                    <p class="text-[10px] font-bold text-[#eaeef2]/60 uppercase tracking-widest mt-1 italic">// Live Core Objective Log Matrix</p>
+                </div>
             </div>
-            <a href="{{ route('admin.tasks.create') }}" class="bg-indigo-600 hover:bg-indigo-500 text-white px-6 py-3.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all shadow-[0_0_15px_rgba(99,102,241,0.4)] flex items-center gap-2">
-                <i class="fas fa-plus"></i> Deploy New Task
+            <a href="{{ route('admin.tasks.create') }}" class="bg-[#d2a63d] hover:bg-[#b8860b] text-[#010717] px-6 py-3.5 rounded-xl font-black uppercase text-[10px] tracking-widest shadow-[0_0_20px_rgba(210,166,61,0.3)] transition-all flex items-center gap-2">
+                <i class="fas fa-plus-circle"></i> Create New Objective
             </a>
         </div>
 
-        {{-- ═══════════════════════════════════════════════════════
-             TASK GRID (KANBAN STYLE)
-        ═══════════════════════════════════════════════════════ --}}
-        <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-            @forelse($tasks as $task)
-            @php
-                // Deadline Logic (Check if time is over)
-                $isOverdue = false;
-                if ($task->due_date && $task->status !== 'completed' && $task->completion_percentage < 100) {
-                    $isOverdue = \Carbon\Carbon::parse($task->due_date)->isPast();
-                }
+        {{-- Main Tasks Ledger Matrix --}}
+        <div class="bg-[#030712] rounded-3xl shadow-xl border border-[#d2a63d]/20 overflow-hidden">
+            <div class="overflow-x-auto">
+                <table class="w-full text-left border-collapse">
+                    <thead>
+                        <tr class="bg-[#d2a63d]/5 border-b border-[#d2a63d]/20 text-[8px] md:text-[9px] font-black text-[#eaeef2]/50 uppercase tracking-[0.2em]">
+                            <th class="px-6 py-4">Objective Details</th>
+                            <th class="px-4 py-4">Assigned Operator</th>
+                            <th class="px-4 py-4 text-center">Completion Stage</th>
+                            <th class="px-4 py-4 text-center">Telemetry Metrics</th>
+                            <th class="px-6 py-4 text-right">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-[#d2a63d]/10">
+                        @forelse($tasks as $task)
+                        @php
+                            $stageStr = $task->completion_stage ?? 'not_started';
+                            $stageBadge = match($stageStr) {
+                                'completed'   => 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20',
+                                'halfway'     => 'bg-amber-500/10 text-amber-400 border-amber-500/20',
+                                'progress'    => 'bg-[#d2a63d]/10 text-[#d2a63d] border-[#d2a63d]/20',
+                                default       => 'bg-[#eaeef2]/5 text-[#eaeef2]/50 border-[#eaeef2]/10',
+                            };
+                            $hasForwarded = $task->forwards && $task->forwards->count() > 0;
+                        @endphp
+                        <tr class="hover:bg-[#d2a63d]/5 transition-colors group">
+                            
+                            {{-- Task Info --}}
+                            <td class="px-6 py-4 max-w-[280px]">
+                                <div class="flex items-center gap-2">
+                                    <p class="text-[8px] font-black font-mono text-[#d2a63d] uppercase tracking-wider mb-0.5">
+                                        {{ $task->project->name ?? 'Standalone Operations' }}
+                                    </p>
+                                    @if($hasForwarded)
+                                        <span onclick="openIntelModal({{ json_encode($task->forwards) }}, '{{ addslashes($task->title) }}')" 
+                                              class="cursor-pointer text-[6px] font-black bg-[#d2a63d]/10 text-[#d2a63d] border border-[#d2a63d]/30 px-1.5 py-0.5 rounded tracking-widest uppercase hover:bg-[#d2a63d] hover:text-[#010717] transition-all shadow animate-pulse">
+                                            <i class="fas fa-share-square"></i> Forwarded
+                                        </span>
+                                    @endif
+                                </div>
+                                <h4 class="text-xs font-black text-white group-hover:text-[#d2a63d] transition-colors uppercase tracking-wide truncate mt-1">
+                                    {{ $task->title }}
+                                </h4>
+                                @if($task->due_date)
+                                <p class="text-[8px] font-bold text-[#eaeef2]/40 mt-1 uppercase tracking-widest">
+                                    Due: <span class="{{ $task->due_date->isPast() ? 'text-rose-400' : 'text-[#eaeef2]/60' }}">
+                                        {{ $task->due_date->format('d M Y') }}
+                                    </span>
+                                </p>
+                                @endif
+                                <div class="w-full bg-[#eaeef2]/10 h-1 rounded-full mt-2 overflow-hidden max-w-[150px]">
+                                    <div class="bg-[#d2a63d] h-full" style="width: {{ $task->completion_percentage ?? 0 }}%"></div>
+                                </div>
+                            </td>
 
-                // Forward Logic (Check if employee forwarded the task)
-                $isForwarded = $task->original_user_id && $task->original_user_id !== $task->user_id;
-                
-                // Review Logic (Check if employee marked 100%)
-                $isReviewPending = ($task->status == 'review' || $task->completion_percentage == 100);
-            @endphp
+                            {{-- Employee Name --}}
+                            <td class="px-4 py-4">
+                                <div class="flex items-center gap-2.5">
+                                    <div class="w-6 h-6 rounded-lg bg-[#d2a63d]/10 border border-[#d2a63d]/20 flex items-center justify-center text-[#d2a63d] font-black text-[9px] uppercase">
+                                        {{ substr($task->user->name ?? 'U', 0, 1) }}
+                                    </div>
+                                    <span class="text-xs font-bold text-[#eaeef2] uppercase tracking-wide">
+                                        {{ $task->user->name ?? 'Unassigned Node' }}
+                                    </span>
+                                </div>
+                            </td>
 
-            <div class="bg-[#0F172A] border {{ $isOverdue ? 'border-rose-500/50 shadow-[0_0_20px_rgba(225,29,72,0.15)]' : 'border-slate-800' }} rounded-3xl p-6 relative overflow-hidden group hover:border-indigo-500/50 transition-all flex flex-col justify-between">
-                
-                <div class="absolute -right-6 -top-6 text-7xl opacity-[0.03] text-white group-hover:scale-110 transition-transform pointer-events-none">
-                    <i class="fas {{ $isReviewPending ? 'fa-check-double' : ($isOverdue ? 'fa-fire' : 'fa-tasks') }}"></i>
-                </div>
+                            {{-- Dynamic Stage Column --}}
+                            <td class="px-4 py-4 text-center">
+                                <span class="text-[7px] md:text-[8px] font-black px-2.5 py-1 rounded border uppercase tracking-widest shadow-sm {{ $stageBadge }}">
+                                    {{ str_replace('_', ' ', $stageStr) }}
+                                </span>
+                                <p class="text-[8px] font-black text-[#eaeef2] mt-1">{{ $task->completion_percentage ?? 0 }}%</p>
+                            </td>
 
-                <div>
-                    {{-- TOP BADGES --}}
-                    <div class="flex justify-between items-start mb-5 relative z-10">
-                        <div class="flex flex-wrap gap-2">
-                            @if($task->status == 'completed')
-                                <span class="bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-2.5 py-1 rounded text-[8px] font-black uppercase tracking-widest shadow-sm">COMPLETED</span>
-                            @elseif($isReviewPending)
-                                <span class="bg-amber-500/10 text-amber-400 border border-amber-500/20 px-2.5 py-1 rounded text-[8px] font-black uppercase tracking-widest animate-pulse shadow-sm">REVIEW PENDING</span>
-                            @else
-                                <span class="bg-blue-500/10 text-blue-400 border border-blue-500/20 px-2.5 py-1 rounded text-[8px] font-black uppercase tracking-widest shadow-sm">{{ str_replace('_', ' ', $task->status) }}</span>
-                            @endif
+                            {{-- Telemetry --}}
+                            <td class="px-4 py-4 text-center font-mono text-[10px]">
+                                <div class="text-[#eaeef2] font-black">Active: {{ $task->days_worked ?? 0 }}d</div>
+                                @if(($task->overdue_days ?? 0) > 0)
+                                    <span class="text-[7px] font-sans font-black bg-rose-500/10 border border-rose-500/20 text-rose-400 px-1 py-0.5 rounded mt-0.5 inline-block animate-pulse">
+                                        ⚠️ +{{ $task->overdue_days }}d OVERDUE
+                                    </span>
+                                @endif
+                            </td>
 
-                            @if($isOverdue)
-                                <span class="bg-rose-500 text-white px-2.5 py-1 rounded text-[8px] font-black uppercase tracking-widest shadow-md animate-bounce"><i class="fas fa-exclamation-triangle mr-1"></i> OVERDUE</span>
-                            @endif
-                        </div>
-                        <div class="flex gap-2">
-                            <a href="{{ route('admin.tasks.edit', $task->id) }}" class="text-slate-500 hover:text-indigo-400 transition-colors"><i class="fas fa-edit text-xs"></i></a>
-                        </div>
-                    </div>
+                            {{-- Configuration Buttons --}}
+                            <td class="px-6 py-4 text-right">
+                                <div class="flex gap-1 justify-end">
+                                    @if($hasForwarded)
+                                        <button onclick="openIntelModal({{ json_encode($task->forwards) }}, '{{ addslashes($task->title) }}')" 
+                                                class="w-7 h-7 bg-[#030712] border border-[#d2a63d]/20 text-[#d2a63d] hover:text-[#010717] hover:bg-[#d2a63d] rounded-lg flex items-center justify-center shadow" title="View Forward Logs">
+                                            <i class="fas fa-history text-[10px]"></i>
+                                        </button>
+                                    @endif
+                                    <a href="{{ route('admin.tasks.show', $task->id) }}" 
+                                       class="w-7 h-7 bg-[#030712] border border-[#d2a63d]/20 text-[#eaeef2]/60 hover:text-emerald-400 rounded-lg flex items-center justify-center shadow" title="View Details">
+                                        <i class="fas fa-eye text-[10px]"></i>
+                                    </a>
+                                    <a href="{{ route('admin.tasks.edit', $task->id) }}" 
+                                       class="w-7 h-7 bg-[#030712] border border-[#d2a63d]/20 text-[#eaeef2]/60 hover:text-[#d2a63d] rounded-lg flex items-center justify-center shadow" title="Edit">
+                                        <i class="fas fa-edit text-[10px]"></i>
+                                    </a>
+                                    <form action="{{ route('admin.tasks.destroy', $task->id) }}" method="POST" class="inline">
+                                        @csrf @method('DELETE')
+                                        <button type="submit" onclick="return confirm('Purge Objective?')" 
+                                                class="w-7 h-7 bg-[#030712] border border-rose-500/20 text-[#eaeef2]/60 hover:text-rose-400 rounded-lg flex items-center justify-center shadow" title="Delete">
+                                            <i class="fas fa-trash-alt text-[10px]"></i>
+                                        </button>
+                                    </form>
+                                </div>
+                            </td>
 
-                    {{-- TASK INFO --}}
-                    <p class="text-[9px] font-black text-indigo-400 uppercase tracking-widest mb-1 relative z-10">{{ $task->project->name ?? 'Standalone Task' }}</p>
-                    <h3 class="text-lg font-bold text-white mb-3 group-hover:text-indigo-300 transition-colors relative z-10 line-clamp-2" title="{{ $task->title }}">{{ $task->title }}</h3>
-
-                    {{-- PROGRESS BAR --}}
-                    <div class="mb-6 relative z-10">
-                        <div class="flex justify-between text-[9px] font-black uppercase tracking-widest mb-2">
-                            <span class="text-slate-400">Completion</span>
-                            <span class="{{ $isReviewPending ? 'text-emerald-400' : 'text-blue-400' }}">{{ $task->completion_percentage ?? 0 }}%</span>
-                        </div>
-                        <div class="w-full bg-[#1E293B] h-1.5 rounded-full overflow-hidden border border-slate-700/50">
-                            <div class="h-full {{ $isReviewPending ? 'bg-emerald-500' : 'bg-blue-500' }} transition-all duration-1000" style="width: {{ $task->completion_percentage ?? 0 }}%"></div>
-                        </div>
-                    </div>
-                </div>
-
-                {{-- ASSIGNEE & DEADLINE --}}
-                <div class="flex items-center justify-between border-t border-slate-800 pt-4 mt-auto relative z-10">
-                    <div class="flex items-center gap-3">
-                        <div class="w-9 h-9 rounded-xl bg-[#1E293B] border border-slate-700 overflow-hidden flex items-center justify-center font-black text-blue-300 text-xs shadow-sm">
-                            @if($task->user && $task->user->profile_image)
-                                <img src="{{ asset('storage/'.$task->user->profile_image) }}" class="w-full h-full object-cover">
-                            @else
-                                {{ substr($task->user->name ?? 'U', 0, 1) }}
-                            @endif
-                        </div>
-                        <div>
-                            <p class="text-[9px] font-black text-white uppercase tracking-wider">{{ $task->user->name ?? 'Unassigned' }}</p>
-                            @if($isForwarded)
-                                <p class="text-[7px] font-bold text-amber-500 uppercase tracking-widest flex items-center gap-1 mt-0.5"><i class="fas fa-exchange-alt"></i> Forwarded</p>
-                            @else
-                                <p class="text-[7px] font-bold text-slate-500 uppercase tracking-widest mt-0.5">Active Owner</p>
-                            @endif
-                        </div>
-                    </div>
-                    
-                    <div class="text-right">
-                        <p class="text-[7px] font-bold text-slate-500 uppercase tracking-widest mb-0.5">Deadline</p>
-                        <p class="text-[9px] font-black {{ $isOverdue ? 'text-rose-500' : 'text-slate-300' }} uppercase tracking-widest">
-                            @if($task->due_date)
-                                {{ \Carbon\Carbon::parse($task->due_date)->format('d M, Y') }}
-                            @else
-                                <span class="text-slate-600">No Limit</span>
-                            @endif
-                        </p>
-                    </div>
-                </div>
-
+                        </tr>
+                        @empty
+                        <tr>
+                            <td colspan="5" class="px-6 py-12 text-center text-[10px] font-black text-[#eaeef2]/40 uppercase tracking-widest">
+                                No analytical task configurations registered.
+                            </td>
+                        </tr>
+                        @endforelse
+                    </tbody>
+                </table>
             </div>
-            @empty
-            <div class="col-span-full py-24 text-center bg-[#0F172A] border border-slate-800 rounded-[2rem] shadow-xl">
-                <i class="fas fa-satellite-dish text-5xl text-slate-700 mb-4 block"></i>
-                <p class="text-xs font-black uppercase tracking-[0.3em] text-slate-500">No Tasks in Queue</p>
+        </div>
+
+    </div>
+</div>
+
+{{-- Forward Transmission History Modal --}}
+<div id="intelModal" class="fixed inset-0 z-[10000] hidden bg-[#010717]/95 backdrop-blur-md flex items-center justify-center p-4">
+    <div id="intelModalContent" class="bg-[#030712] max-w-xl w-full rounded-[2.5rem] shadow-[0_0_50px_rgba(0,0,0,0.6)] border border-[#d2a63d]/30 overflow-hidden transform scale-95 opacity-0 transition-all duration-300">
+        <div class="p-6 bg-[#d2a63d]/5 flex justify-between items-center border-b border-[#d2a63d]/20">
+            <div>
+                <h3 class="text-[10px] font-black text-[#d2a63d] uppercase tracking-[0.2em]">Forward Routing Telemetry</h3>
+                <p id="intel_task_title" class="text-xs text-[#eaeef2] font-bold uppercase tracking-wide mt-1 truncate max-w-[350px]"></p>
             </div>
-            @endforelse
+            <button onclick="closeIntelModal()" class="w-8 h-8 flex items-center justify-center rounded-full bg-[#010717] text-[#eaeef2]/60 hover:bg-rose-600 hover:text-white border border-[#d2a63d]/20 transition-all shadow">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+        <div class="p-8 space-y-4 max-h-[450px] overflow-y-auto custom-scrollbar">
+            <div id="forward_logs_container" class="space-y-4 relative before:absolute before:inset-y-0 before:left-3.5 before:w-[1px] before:bg-[#d2a63d]/20"></div>
         </div>
     </div>
 </div>
+
+<script>
+    function openIntelModal(forwards, taskTitle) {
+        document.getElementById('intel_task_title').innerText = taskTitle;
+        const container = document.getElementById('forward_logs_container');
+        container.innerHTML = '';
+
+        forwards.forEach(log => {
+            const dateFormatted = log.created_at
+                ? new Date(log.created_at).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })
+                : 'Ongoing';
+            
+            const fromName = log.from_user ? log.from_user.name : 'Operator';
+            const toName   = log.to_user   ? log.to_user.name   : 'Next Agent';
+
+            const item = document.createElement('div');
+            item.className = "flex items-start gap-4 relative z-10";
+            item.innerHTML = `
+                <div class="w-8 h-8 rounded-full bg-[#d2a63d]/10 border border-[#d2a63d]/30 flex items-center justify-center flex-shrink-0 text-[#d2a63d] text-xs shadow-md">
+                    <i class="fas fa-exchange-alt"></i>
+                </div>
+                <div class="bg-[#010717] border border-[#d2a63d]/20 rounded-2xl p-4 flex-1 shadow-md">
+                    <div class="flex justify-between items-center mb-2 flex-wrap gap-2">
+                        <span class="text-[9px] font-black text-[#eaeef2] uppercase tracking-wide">
+                            <b class="text-rose-400">${fromName}</b> ➔ <b class="text-emerald-400">${toName}</b>
+                        </span>
+                        <span class="text-[8px] font-mono font-bold text-[#eaeef2]/40 uppercase tracking-widest">${dateFormatted}</span>
+                    </div>
+                    <p class="text-[11px] text-[#eaeef2]/60 italic font-medium leading-relaxed">"${log.note ?? 'No justification logs appended.'}"</p>
+                </div>
+            `;
+            container.appendChild(item);
+        });
+
+        const modal   = document.getElementById('intelModal');
+        const content = document.getElementById('intelModalContent');
+        modal.classList.remove('hidden');
+        setTimeout(() => content.classList.remove('scale-95', 'opacity-0'), 10);
+    }
+
+    function closeIntelModal() {
+        const content = document.getElementById('intelModalContent');
+        content.classList.add('scale-95', 'opacity-0');
+        setTimeout(() => document.getElementById('intelModal').classList.add('hidden'), 300);
+    }
+</script>
+
+<style>
+    .custom-scrollbar::-webkit-scrollbar { width: 4px; }
+    .custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(210, 166, 61, 0.4); border-radius: 10px; }
+</style>
 @endsection

@@ -5,6 +5,7 @@ use Illuminate\Database\Eloquent\Model;
 class TaskForward extends Model
 {
     protected $fillable = [
+        'company_id', 
         'task_id',
         'from_user_id',
         'to_user_id',
@@ -14,4 +15,8 @@ class TaskForward extends Model
     public function task()       { return $this->belongsTo(Task::class); }
     public function fromUser()   { return $this->belongsTo(User::class, 'from_user_id'); }
     public function toUser()     { return $this->belongsTo(User::class, 'to_user_id'); }
+     public function company()
+    {
+        return $this->belongsTo(Company::class);
+    }
 }

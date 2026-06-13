@@ -2,73 +2,96 @@
 
 @section('content')
 
+ <link rel="icon" type="image/jpeg" href="{{ asset('storage/logo/Favicon.png') }}">
+
 {{-- ⭐ Toast Container for Notifications --}}
 <div id="toast-container" class="fixed bottom-6 right-6 z-[9999] flex flex-col gap-3 pointer-events-none"></div>
 
-<div class="max-w-[1600px] mx-auto h-[88vh] flex flex-col lg:flex-row gap-4 p-2 font-sans text-slate-200 bg-[#0B1120]">
+<div class="max-w-[1600px] mx-auto h-[88vh] flex flex-col lg:flex-row gap-4 p-2 font-sans text-[#eaeef2] bg-[#010717]">
     
-    <div class="w-full lg:w-80 h-full bg-[#0F172A] rounded-[2rem] shadow-2xl flex flex-col overflow-hidden border border-blue-900/30">
-        <div class="p-6 bg-gradient-to-br from-blue-600 to-indigo-700">
-            <h3 class="text-white font-black uppercase tracking-widest flex items-center gap-2 text-xs">
-                <i class="fas fa-bolt animate-pulse"></i> Communication Hub
+    <div class="w-full lg:w-80 h-full bg-[#010717] rounded-[2rem] shadow-2xl flex flex-col overflow-hidden border border-[#d2a63d]/20">
+        <div class="p-6" style="background: linear-gradient(135deg, #0a1225 0%, #010717 100%); border-bottom: 1px solid rgba(210,166,61,0.15);">
+            {{-- ⭐ BACK BUTTON --}}
+            <a href="{{ url()->previous() }}" class="inline-flex items-center gap-2 mb-4 px-3 py-1.5 bg-[#d2a63d]/10 border border-[#d2a63d]/30 rounded-xl text-[#d2a63d] hover:bg-[#d2a63d] hover:text-[#010717] text-[9px] font-black uppercase tracking-widest transition-all">
+                <i class="fas fa-arrow-left text-xs"></i> Back
+            </a>
+            <h3 class="text-[#eaeef2] font-black uppercase tracking-widest flex items-center gap-2 text-xs">
+                <i class="fas fa-bolt animate-pulse text-[#d2a63d]"></i> Communication Hub
             </h3>
         </div>
         
         <div class="flex-1 overflow-y-auto p-4 space-y-1 custom-scrollbar">
-            <p class="text-[9px] font-black text-slate-500 uppercase tracking-[0.2em] mb-3 ml-2">Broadcast Nodes</p>
+            <p class="text-[9px] font-black text-[#d2a63d]/40 uppercase tracking-[0.2em] mb-3 ml-2">Broadcast Nodes</p>
             <div onclick="loadChat(0, 'Team War Room', 'main-office')" id="user-0" 
-                 class="user-row flex items-center gap-3 p-4 rounded-2xl cursor-pointer hover:bg-white/5 transition-all border border-transparent">
-                <div class="w-10 h-10 bg-blue-500/20 rounded-xl flex items-center justify-center text-blue-400 border border-blue-500/30 shadow-lg">
+                 class="user-row flex items-center gap-3 p-4 rounded-2xl cursor-pointer hover:bg-[#d2a63d]/5 transition-all border border-transparent">
+                <div class="w-10 h-10 bg-[#d2a63d]/10 rounded-xl flex items-center justify-center text-[#d2a63d] border border-[#d2a63d]/20 shadow-lg">
                     <i class="fas fa-users-cog"></i>
                 </div>
                 <div class="flex-1 min-w-0">
-                    <p class="text-[11px] font-black text-slate-200 uppercase">General Ops</p>
+                    <p class="text-[11px] font-black text-[#eaeef2] uppercase">General Ops</p>
                 </div>
             </div>
 
-            <p class="text-[9px] font-black text-slate-500 uppercase tracking-[0.2em] mt-6 mb-3 ml-2">Direct Uplink</p>
-            @foreach($users as $user)
-            <div onclick="loadChat({{ $user->id }}, '{{ $user->name }}', null)" id="user-{{ $user->id }}" 
-                 class="user-row flex items-center gap-3 p-4 rounded-2xl cursor-pointer hover:bg-white/5 transition-all">
+            <p class="text-[9px] font-black text-[#d2a63d]/40 uppercase tracking-[0.2em] mt-6 mb-3 ml-2">Direct Uplink</p>
+            
+            {{-- ⭐ TENANT ISOLATION & SUPER ADMIN FILTER FIX --}}
+            @php
+                $chatUsers = collect($users ?? [])->filter(function($u) {
+                    // Agar login karnay wala khud super_admin hai toh usay sab nazar aayen (except other super admins)
+                    if (auth()->user()->role === 'super_admin') {
+                        return $u->role !== 'super_admin';
+                    }
+                    // Warna (Admin/Employee ko) sirf apni company ke log nazar aayen, aur super_admin hide rahay
+                    return $u->company_id === auth()->user()->company_id && $u->role !== 'super_admin';
+                });
+            @endphp
+
+            @forelse($chatUsers as $user)
+            <div onclick="loadChat({{ $user->id }}, '{{ addslashes($user->name) }}', null)" id="user-{{ $user->id }}" 
+                 class="user-row flex items-center gap-3 p-4 rounded-2xl cursor-pointer hover:bg-[#d2a63d]/5 transition-all">
                 <div class="relative">
-                    <div class="w-10 h-10 rounded-xl bg-slate-800 flex items-center justify-center text-white text-xs font-black border border-slate-700">
+                    <div class="w-10 h-10 rounded-xl bg-[#010717] flex items-center justify-center text-[#eaeef2] text-xs font-black border border-[#d2a63d]/20">
                         {{ substr($user->name, 0, 1) }}
                     </div>
                 </div>
                 <div class="flex-1 min-w-0">
-                    <p class="text-[11px] font-black text-slate-300 uppercase">{{ $user->name }}</p>
+                    <p class="text-[11px] font-black text-[#eaeef2]/70 uppercase">{{ $user->name }}</p>
                 </div>
             </div>
-            @endforeach
+            @empty
+            <div class="p-4 text-center">
+                <p class="text-[10px] text-[#eaeef2]/30 uppercase tracking-widest italic">No fleet members available.</p>
+            </div>
+            @endforelse
         </div>
     </div>
 
-    <div class="flex-1 h-full bg-[#0F172A]/50 rounded-[2.5rem] shadow-2xl border border-blue-900/20 flex flex-col overflow-hidden relative backdrop-blur-sm">
+    <div class="flex-1 h-full bg-[#010717]/80 rounded-[2.5rem] shadow-2xl border border-[#d2a63d]/10 flex flex-col overflow-hidden relative backdrop-blur-sm">
         
-        <div id="chat-header" class="p-6 border-b border-white/5 bg-[#0F172A]/80 z-10">
+        <div id="chat-header" class="p-6 border-b border-[#d2a63d]/10 bg-[#010717]/90 z-10">
             <div class="flex items-center gap-4">
-                <div id="active-avatar" class="hidden w-12 h-12 rounded-2xl bg-blue-600 flex items-center justify-center text-white font-black border border-blue-400/30"></div>
+                <div id="active-avatar" class="hidden w-12 h-12 rounded-2xl bg-[#d2a63d]/20 flex items-center justify-center text-[#d2a63d] font-black border border-[#d2a63d]/30"></div>
                 <div>
-                    <h2 id="active-user-name" class="text-sm font-black text-slate-400 uppercase tracking-[0.2em]">Awaiting Signal...</h2>
+                    <h2 id="active-user-name" class="text-sm font-black text-[#eaeef2]/30 uppercase tracking-[0.2em]">Awaiting Signal...</h2>
                 </div>
             </div>
         </div>
 
-        <div id="chat-window" class="flex-1 overflow-y-auto p-8 space-y-6 custom-scrollbar bg-[radial-gradient(#1e293b_1px,transparent_1px)] [background-size:32px_32px]">
+        <div id="chat-window" class="flex-1 overflow-y-auto p-8 space-y-6 custom-scrollbar bg-[radial-gradient(#0a1225_1px,transparent_1px)] [background-size:32px_32px]">
             </div>
 
-        <div class="p-6 bg-[#0F172A] border-t border-white/5 relative">
+        <div class="p-6 bg-[#010717] border-t border-[#d2a63d]/10 relative">
             <form id="chat-form" onsubmit="event.preventDefault(); sendMessage();">
                 
-                <div id="file-preview-zone" class="hidden mb-4 p-4 bg-blue-600/10 border border-blue-500/30 rounded-2xl flex items-center justify-between">
-                    <span id="file-name-display" class="text-xs font-bold text-blue-200"></span>
+                <div id="file-preview-zone" class="hidden mb-4 p-4 bg-[#d2a63d]/10 border border-[#d2a63d]/30 rounded-2xl flex items-center justify-between">
+                    <span id="file-name-display" class="text-xs font-bold text-[#d2a63d]"></span>
                     <button type="button" onclick="clearFile()" class="text-rose-500 hover:text-rose-400"><i class="fas fa-times-circle"></i></button>
                 </div>
 
                 <div class="flex items-center gap-3">
                     
                     <div id="default-input-area" class="flex flex-1 items-center gap-3 transition-all duration-300">
-                        <label class="w-12 h-12 rounded-full bg-slate-800 flex items-center justify-center text-slate-400 hover:text-blue-400 cursor-pointer">
+                        <label class="w-12 h-12 rounded-full bg-[#010717] border border-[#d2a63d]/20 flex items-center justify-center text-[#eaeef2]/40 hover:text-[#d2a63d] hover:border-[#d2a63d]/50 cursor-pointer transition-all">
                             <input type="file" id="file-input" class="hidden" onchange="handleFileSelect(this)">
                             <i class="fas fa-paperclip text-xl"></i>
                         </label>
@@ -77,7 +100,7 @@
                             <input type="hidden" id="form_receiver_id" value="">
                             <input type="hidden" id="form_group_name" value="">
                             <input type="text" id="message-input" autocomplete="off"
-                                   class="w-full bg-slate-800/50 border border-slate-700 rounded-full px-6 py-3 text-sm text-white placeholder-slate-500 outline-none focus:border-blue-500" 
+                                   class="w-full bg-[#010717] border border-[#d2a63d]/20 rounded-full px-6 py-3 text-sm text-[#eaeef2] placeholder-[#eaeef2]/20 outline-none focus:border-[#d2a63d]/60 transition-all" 
                                    placeholder="Type a message...">
                         </div>
                     </div>
@@ -88,12 +111,12 @@
                             <span id="recording-time">00:00</span>
                         </div>
                         <div class="flex gap-6 items-center">
-                            <button type="button" onclick="cancelRecording()" class="text-slate-400 hover:text-rose-500" title="Delete Recording"><i class="fas fa-trash-alt text-xl"></i></button>
+                            <button type="button" onclick="cancelRecording()" class="text-[#eaeef2]/30 hover:text-rose-500" title="Delete Recording"><i class="fas fa-trash-alt text-xl"></i></button>
                             <button type="button" onclick="sendRecording()" class="text-emerald-400 hover:text-emerald-300" title="Send Recording"><i class="fas fa-paper-plane text-xl"></i></button>
                         </div>
                     </div>
 
-                    <button type="button" id="mic-btn" onclick="startRecording()" class="w-12 h-12 bg-blue-600 hover:bg-blue-500 text-white rounded-full flex items-center justify-center shadow-lg transition-all">
+                    <button type="button" id="mic-btn" onclick="startRecording()" class="w-12 h-12 bg-[#d2a63d] hover:bg-[#d2a63d]/80 text-[#010717] rounded-full flex items-center justify-center shadow-lg transition-all">
                         <i id="mic-icon" class="fas fa-microphone text-xl"></i>
                     </button>
                     <button type="submit" id="send-btn" class="hidden w-12 h-12 bg-emerald-600 hover:bg-emerald-500 text-white rounded-full flex items-center justify-center shadow-lg transition-all">
@@ -209,7 +232,7 @@
     function formatMessage(text) {
         if(!text) return '';
         const urlRegex = /(https?:\/\/[^\s]+)/g;
-        return text.replace(urlRegex, url => `<a href="${url}" target="_blank" class="text-blue-200 underline">${url}</a>`);
+        return text.replace(urlRegex, url => `<a href="${url}" target="_blank" class="text-[#d2a63d] underline">${url}</a>`);
     }
 
     async function sendMessage() {
@@ -260,11 +283,11 @@
         
         if(msg.voice_path) {
             contentHtml += `
-                <div class="mt-2 flex items-center gap-2 bg-black/20 rounded-full pr-4">
+                <div class="mt-2 flex items-center gap-2 bg-[#010717]/40 border border-[#d2a63d]/20 rounded-full pr-4">
                     <audio controls class="h-10 w-[200px] outline-none">
                         <source src="/storage/${msg.voice_path}" type="audio/webm">
                     </audio>
-                    <a href="/chat/download/${msg.id}" title="Download Voice Note" class="text-slate-400 hover:text-white"><i class="fas fa-download"></i></a>
+                    <a href="/chat/download/${msg.id}" title="Download Voice Note" class="text-[#eaeef2]/40 hover:text-[#d2a63d]"><i class="fas fa-download"></i></a>
                 </div>`;
         }
 
@@ -272,33 +295,33 @@
             const isImg = msg.file_name.match(/\.(jpg|jpeg|png|gif)$/i);
             if(isImg) {
                 contentHtml += `
-                    <div class="mt-2 relative group overflow-hidden rounded-xl">
+                    <div class="mt-2 relative group overflow-hidden rounded-xl border border-[#d2a63d]/20">
                         <img src="/storage/${msg.file_path}" class="w-full max-w-[250px]">
-                        <a href="/chat/download/${msg.id}" class="absolute bottom-2 right-2 bg-black/60 text-white w-8 h-8 flex items-center justify-center rounded-full opacity-0 group-hover:opacity-100 transition-opacity"><i class="fas fa-download"></i></a>
+                        <a href="/chat/download/${msg.id}" class="absolute bottom-2 right-2 bg-black/80 border border-[#d2a63d]/30 text-[#d2a63d] w-8 h-8 flex items-center justify-center rounded-full opacity-0 group-hover:opacity-100 transition-opacity"><i class="fas fa-download"></i></a>
                     </div>`;
             } else {
                 contentHtml += `
-                    <div class="mt-2 flex items-center gap-3 p-3 bg-black/20 rounded-xl">
-                        <div class="w-10 h-10 bg-blue-500/20 text-blue-400 flex items-center justify-center rounded-lg"><i class="fas fa-file-alt text-xl"></i></div>
+                    <div class="mt-2 flex items-center gap-3 p-3 bg-[#010717]/40 border border-[#d2a63d]/20 rounded-xl">
+                        <div class="w-10 h-10 bg-[#d2a63d]/10 text-[#d2a63d] flex items-center justify-center rounded-lg border border-[#d2a63d]/20"><i class="fas fa-file-alt text-xl"></i></div>
                         <div class="flex-1 overflow-hidden">
                             <p class="text-xs font-bold truncate">${msg.file_name}</p>
                         </div>
-                        <a href="/chat/download/${msg.id}" class="text-blue-400 hover:text-blue-300"><i class="fas fa-download text-lg"></i></a>
+                        <a href="/chat/download/${msg.id}" class="text-[#d2a63d] hover:text-[#eaeef2]"><i class="fas fa-download text-lg"></i></a>
                     </div>`;
             }
         }
 
-        const deleteBtn = isMe ? `<button onclick="deleteMsg(${msg.id}, this)" class="text-slate-400 hover:text-rose-400 opacity-0 group-hover:opacity-100 transition-opacity" title="Delete"><i class="fas fa-trash-alt text-xs"></i></button>` : '';
+        const deleteBtn = isMe ? `<button onclick="deleteMsg(${msg.id}, this)" class="text-[#eaeef2]/20 hover:text-rose-400 opacity-0 group-hover:opacity-100 transition-opacity" title="Delete"><i class="fas fa-trash-alt text-xs"></i></button>` : '';
 
         const messageHtml = `
             <div id="msg-${msg.id}" class="flex ${isMe ? 'justify-end' : 'justify-start'} mb-4 message-container group animate-in fade-in slide-in-from-bottom-2">
                 ${isMe ? `<div class="mr-3 flex items-center">${deleteBtn}</div>` : ''}
                 <div class="max-w-[70%]">
-                    <div class="p-3 ${isMe ? 'bg-blue-600 text-white rounded-2xl rounded-tr-sm' : 'bg-slate-800 text-slate-200 rounded-2xl rounded-tl-sm'} shadow-md relative">
-                        ${!isMe && activeChatGroup ? `<p class="text-[10px] font-black text-blue-400 mb-1">${msg.sender?.name || 'User'}</p>` : ''}
+                    <div class="p-3 ${isMe ? 'bg-[#d2a63d] text-[#010717] rounded-2xl rounded-tr-sm' : 'bg-[#010717] border border-[#d2a63d]/10 text-[#eaeef2] rounded-2xl rounded-tl-sm'} shadow-md relative">
+                        ${!isMe && activeChatGroup ? `<p class="text-[10px] font-black text-[#d2a63d] mb-1">${msg.sender?.name || 'User'}</p>` : ''}
                         ${contentHtml}
                         <div class="text-right mt-1">
-                            <span class="text-[9px] opacity-70">${new Date(msg.created_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
+                            <span class="text-[9px] opacity-60">${new Date(msg.created_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
                         </div>
                     </div>
                 </div>
@@ -314,8 +337,8 @@
         document.getElementById('form_receiver_id').value = (id === 0) ? '' : id;
         document.getElementById('form_group_name').value = group || '';
         document.getElementById('active-user-name').innerText = name;
-        document.querySelectorAll('.user-row').forEach(r => r.classList.remove('bg-white/10'));
-        document.getElementById(`user-${id}`).classList.add('bg-white/10');
+        document.querySelectorAll('.user-row').forEach(r => r.classList.remove('bg-[#d2a63d]/10'));
+        document.getElementById(`user-${id}`).classList.add('bg-[#d2a63d]/10');
         refreshChat(true);
     }
 
@@ -369,17 +392,17 @@
         } catch(e){}
 
         const toast = document.createElement('div');
-        toast.className = `glass-effect border-l-4 border-blue-500/50 bg-blue-600/20 text-blue-400 rounded-xl p-4 w-80 shadow-[0_10px_30px_rgba(0,0,0,0.5)] pointer-events-auto flex gap-4 items-start toast-enter`;
+        toast.className = `glass-effect border-l-4 border-[#d2a63d]/50 bg-[#d2a63d]/10 text-[#d2a63d] rounded-xl p-4 w-80 shadow-[0_10px_30px_rgba(0,0,0,0.5)] pointer-events-auto flex gap-4 items-start toast-enter`;
         
         toast.innerHTML = `
             <div class="mt-0.5 rounded-full p-2 bg-black/30 shadow-inner">
                 <i class="fas ${icon} text-lg"></i>
             </div>
             <div class="flex-1">
-                <h4 class="text-xs font-black text-white uppercase tracking-widest mb-1">${title}</h4>
-                <p class="text-[11px] text-slate-300 font-medium leading-relaxed">${message}</p>
+                <h4 class="text-xs font-black text-[#eaeef2] uppercase tracking-widest mb-1">${title}</h4>
+                <p class="text-[11px] text-[#eaeef2]/50 font-medium leading-relaxed">${message}</p>
             </div>
-            <button onclick="this.parentElement.remove()" class="text-slate-500 hover:text-white transition-colors">
+            <button onclick="this.parentElement.remove()" class="text-[#eaeef2]/20 hover:text-[#eaeef2] transition-colors">
                 <i class="fas fa-times"></i>
             </button>
         `;
@@ -392,18 +415,17 @@
         }, 6000);
     }
 
-    // ⭐ NAYA FIX: Global Notification Poller (Page load hote hi aur phir har 5s baad)
+    // ⭐ NAYA FIX: Global Notification Poller
     let lastMessageCount = 0;
     function checkSystemAlerts() {
         fetch("{{ url('/chat/unread-count') }}")
         .then(res => res.json())
         .then(data => {
             if (data.count > 0) {
-                // Toast sirf tab show karein agar naya message aaya hai aur user uski chat me nahi hai
                 if (data.count > lastMessageCount) {
                     spawnToast(
                         'Incoming Transmission', 
-                        `You have a new secure message from <b class="text-white">${data.sender_name}</b>.`
+                        `You have a new secure message from <b class="text-[#d2a63d]">${data.sender_name}</b>.`
                     );
                 }
                 lastMessageCount = data.count;
@@ -425,8 +447,8 @@
 
 <style>
     .custom-scrollbar::-webkit-scrollbar { width: 5px; }
-    .custom-scrollbar::-webkit-scrollbar-thumb { background: #475569; border-radius: 10px; }
-    .glass-effect { background: rgba(255, 255, 255, 0.05); backdrop-filter: blur(10px); border: 1px solid rgba(255, 255, 255, 0.1); }
+    .custom-scrollbar::-webkit-scrollbar-thumb { background: #d2a63d40; border-radius: 10px; }
+    .glass-effect { background: rgba(210, 166, 61, 0.05); backdrop-filter: blur(10px); border: 1px solid rgba(210, 166, 61, 0.15); }
     
     @keyframes toast-slide-in {
         0% { transform: translateX(100%); opacity: 0; }

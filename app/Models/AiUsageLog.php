@@ -8,6 +8,7 @@ class AiUsageLog extends Model
     use HasFactory;
 
     protected $fillable = [
+        'company_id', 
         'user_id',
         'ai_tool',
         'log_date',
@@ -37,5 +38,9 @@ class AiUsageLog extends Model
             'yearly'  => $query->whereYear('log_date', now($tz)->year),
             default   => $query->whereDate('log_date', now($tz)->toDateString()),
         };
+    }
+     public function company()
+    {
+        return $this->belongsTo(Company::class);
     }
 }

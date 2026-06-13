@@ -1,108 +1,139 @@
 @extends('layouts.admin')
 
 @section('content')
-<div class="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 py-8 px-4 sm:px-6 lg:px-8">
+
+{{-- ⭐ Favicon --}}
+<link rel="icon" type="image/png" href="{{ asset('storage/logo/Favicon.png') }}">
+
+<div class="min-h-screen bg-[#010717] py-8 px-4 sm:px-6 lg:px-8">
     <div class="max-w-7xl mx-auto">
-        <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-8 gap-4">
-            <div>
-                <h1 class="text-3xl font-bold text-slate-800 mb-1">Team Members</h1>
-                <p class="text-slate-500">Manage your organization's personnel</p>
-            </div>
-            <a href="{{ route('admin.employees.create') }}" class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg font-medium shadow-md hover:shadow-lg transition-all flex items-center">
-                <i class="fas fa-plus mr-2"></i> Add New Member
+        
+        {{-- ⭐ 1. BACK BUTTON (Jo aapne manga tha) --}}
+        <div class="flex justify-start mb-6">
+            <a href="{{ url()->previous() }}" class="inline-flex items-center gap-2 px-4 py-2 bg-[#d2a63d]/10 border border-[#d2a63d]/30 rounded-xl text-[#d2a63d] hover:bg-[#d2a63d] hover:text-[#010717] text-[10px] font-black uppercase tracking-widest transition-all">
+                <i class="fas fa-arrow-left text-xs"></i> Back
             </a>
         </div>
 
-        <div class="bg-white rounded-xl shadow-sm p-6 mb-6">
+        <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-8 gap-4">
+            <div>
+                <h1 class="text-3xl font-bold text-[#eaeef2] mb-1">Team Members</h1>
+                <p class="text-[#eaeef2]/50">Manage your organization's personnel</p>
+            </div>
+            
+            {{-- ⭐ 2. ADD NEW MEMBER BUTTON --}}
+            <a href="{{ route('admin.employees.create') }}" class="bg-[#d2a63d] hover:bg-[#b88e2c] text-[#010717] px-6 py-3 rounded-xl font-bold shadow-[0_0_15px_rgba(210,166,61,0.3)] transition-all flex items-center gap-2">
+                <i class="fas fa-plus"></i> Add New Member
+            </a>
+        </div>
+
+        {{-- Filters Section --}}
+        <div class="bg-[#0a1225] border border-[#d2a63d]/20 rounded-2xl shadow-lg p-6 mb-6">
             <div class="flex flex-col md:flex-row gap-4">
                 <div class="flex-1">
                     <div class="relative">
-                        <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                            <i class="fas fa-search text-slate-400"></i>
+                        <div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                            <i class="fas fa-search text-[#d2a63d]/50"></i>
                         </div>
-                        <input type="text" placeholder="Search employees..." class="w-full pl-10 pr-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                        <input type="text" placeholder="Search employees..." class="w-full pl-11 pr-4 py-3 bg-[#010717] border border-[#d2a63d]/20 rounded-xl focus:ring-2 focus:ring-[#d2a63d]/50 focus:border-[#d2a63d]/50 text-[#eaeef2] placeholder-[#eaeef2]/30 outline-none transition-all">
                     </div>
                 </div>
                 <div class="flex gap-2">
-                    <select class="px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
-                        <option>All Departments</option>
+                    <select class="px-4 py-3 bg-[#010717] border border-[#d2a63d]/20 rounded-xl focus:ring-2 focus:ring-[#d2a63d]/50 focus:border-[#d2a63d]/50 text-[#eaeef2] outline-none transition-all appearance-none cursor-pointer">
+                        <option value="">All Departments</option>
                         @foreach($departments ?? [] as $dept)
-                            <option>{{ $dept->name }}</option>
+                            <option value="{{ $dept->id }}">{{ $dept->name }}</option>
                         @endforeach
                     </select>
                 </div>
             </div>
         </div>
 
-        <div class="bg-white rounded-xl shadow-sm overflow-hidden">
+        {{-- Table Section --}}
+        <div class="bg-[#0a1225] border border-[#d2a63d]/20 rounded-2xl shadow-lg overflow-hidden">
             <div class="overflow-x-auto">
                 <table class="w-full">
-                    <thead class="bg-slate-50 border-b border-slate-200">
+                    <thead class="bg-[#010717] border-b border-[#d2a63d]/20">
                         <tr>
-                            <th class="px-6 py-4 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Employee</th>
-                            <th class="px-6 py-4 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Designation</th>
-                            <th class="px-6 py-4 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Department</th>
-                            <th class="px-6 py-4 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Status</th>
-                            <th class="px-6 py-4 text-right text-xs font-medium text-slate-500 uppercase tracking-wider">Actions</th>
+                            <th class="px-6 py-5 text-left text-xs font-bold text-[#d2a63d] uppercase tracking-wider">Employee</th>
+                            <th class="px-6 py-5 text-left text-xs font-bold text-[#d2a63d] uppercase tracking-wider">Designation</th>
+                            <th class="px-6 py-5 text-left text-xs font-bold text-[#d2a63d] uppercase tracking-wider">Department</th>
+                            <th class="px-6 py-5 text-left text-xs font-bold text-[#d2a63d] uppercase tracking-wider">Status</th>
+                            <th class="px-6 py-5 text-right text-xs font-bold text-[#d2a63d] uppercase tracking-wider">Actions</th>
                         </tr>
                     </thead>
-                    <tbody class="bg-white divide-y divide-slate-200">
+                    <tbody class="divide-y divide-[#d2a63d]/10">
                         @foreach($employees as $employee)
-                        <tr class="hover:bg-slate-50 transition-colors">
+                        <tr class="hover:bg-[#d2a63d]/5 transition-colors">
                             <td class="px-6 py-4 whitespace-nowrap">
                                 <div class="flex items-center">
                                     <div class="flex-shrink-0 h-10 w-10">
                                         @if($employee->profile_image)
-                                            <img class="h-10 w-10 rounded-full object-cover" src="{{ asset('storage/'.$employee->profile_image) }}" alt="{{ $employee->name }}">
+                                            <img class="h-10 w-10 rounded-full border border-[#d2a63d]/30 object-cover" src="{{ asset('storage/'.$employee->profile_image) }}" alt="{{ $employee->name }}">
                                         @else
-                                            <div class="h-10 w-10 rounded-full bg-blue-100 flex items-center justify-center">
-                                                <span class="text-blue-600 font-medium">{{ strtoupper(substr($employee->name, 0, 1)) }}</span>
+                                            <div class="h-10 w-10 rounded-full bg-[#010717] border border-[#d2a63d]/30 flex items-center justify-center">
+                                                <span class="text-[#d2a63d] font-bold">{{ strtoupper(substr($employee->name, 0, 1)) }}</span>
                                             </div>
                                         @endif
                                     </div>
                                     <div class="ml-4">
-                                        <div class="text-sm font-medium text-slate-900">{{ $employee->name }}</div>
-                                        <div class="text-sm text-slate-500">{{ $employee->email }}</div>
+                                        <div class="text-sm font-bold text-[#eaeef2]">{{ $employee->name }}</div>
+                                        <div class="text-xs text-[#eaeef2]/50">{{ $employee->email }}</div>
                                     </div>
                                 </div>
                             </td>
                             <td class="px-6 py-4 whitespace-nowrap">
-                                <div class="text-sm text-slate-900">{{ $employee->designation }}</div>
-                                <div class="text-sm text-slate-500">Rs. {{ number_format($employee->salary ?? 0) }}</div>
+                                <div class="text-sm text-[#eaeef2]">{{ $employee->designation }}</div>
+                                <div class="text-xs text-[#d2a63d]">Rs. {{ number_format($employee->salary ?? 0) }}</div>
                             </td>
                             <td class="px-6 py-4 whitespace-nowrap">
-                                <div class="text-sm text-slate-900">{{ $employee->department->name ?? 'Unassigned' }}</div>
+                                <div class="text-sm text-[#eaeef2]/80">{{ $employee->department->name ?? 'Unassigned' }}</div>
                             </td>
                             <td class="px-6 py-4 whitespace-nowrap">
-                                <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full {{ ($employee->status ?? 'active') === 'active' ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800' }}">
+                                <span class="px-3 py-1 inline-flex text-[10px] font-bold uppercase tracking-wider rounded-full border {{ ($employee->status ?? 'active') === 'active' ? 'bg-green-500/10 text-green-400 border-green-500/20' : 'bg-red-500/10 text-red-400 border-red-500/20' }}">
                                     {{ ucfirst($employee->status ?? 'active') }}
                                 </span>
                             </td>
                             <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                                <div class="flex justify-end items-center space-x-3">
-                                    {{-- ⭐ REVIEW BUTTON --}}
+                                <div class="flex justify-end items-center gap-3">
+                                    
+                                    {{-- ⭐ 3. REVIEW BUTTON (Star) --}}
                                     <button onclick="openReviewModal({{ $employee->id }}, '{{ $employee->name }}')" 
-                                            class="text-emerald-500 hover:text-emerald-700 transition-colors" title="Submit Technical Review">
-                                        <i class="fas fa-star-half-alt text-lg"></i>
+                                            class="w-8 h-8 rounded-lg bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500 hover:text-white border border-emerald-500/30 flex items-center justify-center transition-all" title="Submit Technical Review">
+                                        <i class="fas fa-star-half-alt text-xs"></i>
                                     </button>
 
-                                    <a href="{{ route('admin.employees.show', $employee->id) }}" class="text-slate-400 hover:text-blue-600 transition-colors" title="View Details">
-                                        <i class="fas fa-eye"></i>
+                                    {{-- ⭐ 4. VIEW DETAILS BUTTON (Eye) --}}
+                                    <a href="{{ route('admin.employees.show', $employee->id) }}" class="w-8 h-8 rounded-lg bg-blue-500/10 text-blue-400 hover:bg-blue-500 hover:text-white border border-blue-500/30 flex items-center justify-center transition-all" title="View Details">
+                                        <i class="fas fa-eye text-xs"></i>
                                     </a>
-                                    <a href="{{ route('admin.employees.edit', $employee->id) }}" class="text-slate-400 hover:text-indigo-600 transition-colors" title="Edit">
-                                        <i class="fas fa-edit"></i>
+
+                                    {{-- ⭐ 5. EDIT BUTTON (Pencil) --}}
+                                    <a href="{{ route('admin.employees.edit', $employee->id) }}" class="w-8 h-8 rounded-lg bg-[#d2a63d]/10 text-[#d2a63d] hover:bg-[#d2a63d] hover:text-[#010717] border border-[#d2a63d]/30 flex items-center justify-center transition-all" title="Edit">
+                                        <i class="fas fa-edit text-xs"></i>
                                     </a>
+
+                                    {{-- ⭐ 6. DELETE BUTTON (Trash) --}}
                                     <form action="{{ route('admin.employees.destroy', $employee->id) }}" method="POST" class="inline">
                                         @csrf 
                                         @method('DELETE')
-                                        <button type="submit" class="text-slate-400 hover:text-red-600 transition-colors" title="Delete" onclick="return confirm('Are you sure you want to remove this employee?')">
-                                            <i class="fas fa-trash"></i>
+                                        <button type="submit" class="w-8 h-8 rounded-lg bg-red-500/10 text-red-400 hover:bg-red-500 hover:text-white border border-red-500/30 flex items-center justify-center transition-all" title="Delete" onclick="return confirm('Are you sure you want to remove this employee?')">
+                                            <i class="fas fa-trash text-xs"></i>
                                         </button>
                                     </form>
+
                                 </div>
                             </td>
                         </tr>
                         @endforeach
+                        
+                        @if($employees->isEmpty())
+                        <tr>
+                            <td colspan="5" class="px-6 py-10 text-center text-[#eaeef2]/40 text-sm">
+                                No personnel registered in your directory yet.
+                            </td>
+                        </tr>
+                        @endif
                     </tbody>
                 </table>
             </div>
@@ -111,32 +142,31 @@
 </div>
 
 {{-- ⭐ MODAL SECTION --}}
-<div id="reviewModal" class="fixed inset-0 z-[10000] hidden bg-slate-950/90 backdrop-blur-md flex items-center justify-center p-4">
-    <div class="bg-white max-w-lg w-full rounded-[2.5rem] border border-emerald-500/30 shadow-2xl overflow-hidden shadow-emerald-500/10">
-        <div class="p-6 bg-emerald-900 flex justify-between items-center">
-            <h3 class="text-xs font-black uppercase italic tracking-widest text-emerald-400">
-                Transmit Review: <span id="modal_user_name" class="text-white"></span>
+<div id="reviewModal" class="fixed inset-0 z-[10000] hidden bg-[#010717]/90 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="bg-[#0a1225] max-w-lg w-full rounded-2xl border border-[#d2a63d]/30 shadow-2xl overflow-hidden">
+        <div class="p-6 bg-[#010717] border-b border-[#d2a63d]/20 flex justify-between items-center">
+            <h3 class="text-sm font-bold text-[#d2a63d] flex items-center">
+                <i class="fas fa-broadcast-tower mr-2"></i> Transmit Review: <span id="modal_user_name" class="text-[#eaeef2] ml-2"></span>
             </h3>
-            <button onclick="closeReviewModal()" class="text-emerald-400 hover:text-white transition-colors">
+            <button onclick="closeReviewModal()" class="text-[#eaeef2]/50 hover:text-[#d2a63d] transition-colors">
                 <i class="fas fa-times"></i>
             </button>
         </div>
 
-        {{-- ⭐ FIX: Added button loader to prevent double submission --}}
-        <form action="{{ route('admin.feedback.store') }}" method="POST" class="p-8 space-y-6" onsubmit="this.querySelector('button[type=submit]').disabled = true; this.querySelector('button[type=submit]').innerHTML = 'Transmitting...';">
+        <form action="{{ route('admin.feedback.store') }}" method="POST" class="p-8 space-y-6" onsubmit="this.querySelector('button[type=submit]').disabled = true; this.querySelector('button[type=submit]').innerHTML = '<i class=\'fas fa-spinner fa-spin mr-2\'></i> Transmitting...';">
             @csrf
             <input type="hidden" name="employee_id" id="modal_user_id">
             <input type="hidden" name="task_id" value="0">
 
             <div class="grid grid-cols-2 gap-4">
                 <div>
-                    <label class="text-[10px] font-black uppercase text-slate-400 block mb-2 ml-1">Performance (1-10)</label>
+                    <label class="text-[10px] font-black uppercase text-[#eaeef2]/50 block mb-2 ml-1">Performance (1-10)</label>
                     <input type="number" name="rating_score" min="1" max="10" required 
-                           class="w-full bg-slate-50 border border-slate-200 rounded-2xl px-4 py-3 text-xs font-bold text-slate-800 focus:ring-2 focus:ring-emerald-500 outline-none transition-all">
+                           class="w-full bg-[#010717] border border-[#d2a63d]/20 rounded-xl px-4 py-3 text-sm font-bold text-[#eaeef2] focus:ring-2 focus:ring-[#d2a63d]/50 outline-none transition-all">
                 </div>
                 <div>
-                    <label class="text-[10px] font-black uppercase text-slate-400 block mb-2 ml-1">Efficiency Status</label>
-                    <select name="status" class="w-full bg-slate-50 border border-slate-200 rounded-2xl px-4 py-3 text-xs font-bold text-slate-800 focus:ring-2 focus:ring-emerald-500 outline-none transition-all">
+                    <label class="text-[10px] font-black uppercase text-[#eaeef2]/50 block mb-2 ml-1">Efficiency Status</label>
+                    <select name="status" class="w-full bg-[#010717] border border-[#d2a63d]/20 rounded-xl px-4 py-3 text-sm font-bold text-[#eaeef2] focus:ring-2 focus:ring-[#d2a63d]/50 outline-none transition-all appearance-none">
                         <option value="excellent">Excellent Execution</option>
                         <option value="good">Standard Met</option>
                         <option value="needs_improvement">Needs Optimization</option>
@@ -145,13 +175,13 @@
             </div>
 
             <div>
-                <label class="text-[10px] font-black uppercase text-slate-400 block mb-2 ml-1">Technical Review Note</label>
+                <label class="text-[10px] font-black uppercase text-[#eaeef2]/50 block mb-2 ml-1">Technical Review Note</label>
                 <textarea name="review_note" rows="4" required
-                          class="w-full bg-slate-50 border border-slate-200 rounded-2xl px-4 py-3 text-xs font-bold text-slate-800 focus:ring-2 focus:ring-emerald-500 outline-none transition-all"
+                          class="w-full bg-[#010717] border border-[#d2a63d]/20 rounded-xl px-4 py-3 text-sm text-[#eaeef2] placeholder-[#eaeef2]/20 focus:ring-2 focus:ring-[#d2a63d]/50 outline-none transition-all"
                           placeholder="Log official analysis..."></textarea>
             </div>
 
-            <button type="submit" class="w-full bg-emerald-900 hover:bg-black text-white py-4 rounded-2xl font-black uppercase text-[10px] tracking-[0.2em] transition-all shadow-lg active:scale-95">
+            <button type="submit" class="w-full bg-[#d2a63d] hover:bg-[#d2a63d]/80 text-[#010717] py-4 rounded-xl font-bold uppercase text-xs tracking-widest transition-all shadow-[0_0_15px_rgba(210,166,61,0.2)]">
                 Confirm Transmission
             </button>
         </form>
@@ -161,7 +191,6 @@
 {{-- ⭐ SweetAlert2 & Popup Logic --}}
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 <script>
-    // Show Toast Notification when Employee is Created/Updated/Deleted
     @if(session('success'))
         document.addEventListener('DOMContentLoaded', () => {
             Swal.fire({
@@ -172,8 +201,9 @@
                 timerProgressBar: true,
                 icon: 'success',
                 title: "{{ session('success') }}",
-                background: '#ffffff',
-                color: '#1e293b'
+                background: '#0a1225',
+                color: '#eaeef2',
+                iconColor: '#d2a63d'
             });
         });
     @endif
@@ -188,8 +218,8 @@
                 timerProgressBar: true,
                 icon: 'error',
                 title: "{{ session('error') }}",
-                background: '#ffffff',
-                color: '#1e293b'
+                background: '#0a1225',
+                color: '#eaeef2'
             });
         });
     @endif
@@ -206,7 +236,6 @@
 </script>
 
 <style>
-    /* Taake modal smooth lage */
     #reviewModal { transition: opacity 0.3s ease-in-out; }
 </style>
 @endsection

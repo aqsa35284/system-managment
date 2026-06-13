@@ -3,76 +3,116 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Office OS | Digital Command & Monitoring</title>
+    <title>EAMS | Employee Activity Monitoring System</title>
+    
+    <link rel="icon" type="image/jpeg" href="{{ asset('storage/logo/Favicon.png') }}">
+    
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:ital,wght@0,400;0,700;0,900;1,900&display=swap" rel="stylesheet">
+    
     <style>
-        body { font-family: 'Inter', sans-serif; }
-        .glass { background: rgba(255, 255, 255, 0.03); backdrop-filter: blur(10px); }
+        body { 
+            font-family: 'Inter', sans-serif; 
+            background-color: #010717; /* Deepest black/dark */
+            color: #eaeef2; /* Off-white text */
+        }
+        
+        /* Gold Gradient matching your logo */
+        .text-gradient-gold {
+            background: linear-gradient(135deg, #d2a63d 0%, #f4d03f 50%, #b8860b 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        
+        .glow-bg {
+            position: absolute;
+            width: 800px;
+            height: 600px;
+            /* Gold Glow */
+            background: radial-gradient(circle, rgba(210,166,61,0.06) 0%, rgba(1,7,23,0) 70%);
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            z-index: 0;
+            pointer-events: none;
+        }
     </style>
 </head>
-<body class="bg-slate-950 text-white overflow-x-hidden">
+<body class="overflow-x-hidden relative min-h-screen flex flex-col">
 
-    <nav class="max-w-7xl mx-auto px-8 py-10 flex justify-between items-center relative z-10">
-        <h1 class="text-3xl font-black italic tracking-tighter uppercase">
-            Admin <span class="text-blue-600">Pro</span>
-        </h1>
-        <div class="flex items-center gap-8">
+    <div class="glow-bg"></div>
+
+    {{-- NAVBAR --}}
+    <nav class="max-w-7xl w-full mx-auto px-6 py-8 flex justify-between items-center relative z-10">
+        
+        <a href="/" class="block hover:scale-105 transition-transform duration-300">
+            <img src="{{ asset('storage/logo/EAMS Logo.png') }}" 
+                 alt="EAMS Logo" 
+                 class="h-12 md:h-16 w-auto object-contain drop-shadow-[0_0_15px_rgba(210,166,61,0.2)] rounded-lg">
+        </a>
+        
+        <div class="flex items-center gap-6">
             @auth
                 <a href="{{ auth()->user()->role === 'admin' ? route('admin.dashboard') : route('employee.dashboard') }}" 
-                   class="bg-blue-600 px-8 py-4 rounded-2xl font-black italic text-xs uppercase shadow-2xl shadow-blue-600/20 hover:-translate-y-1 transition-all">
-                    Go to Dashboard <i class="fas fa-th-large ml-2"></i>
+                   class="border border-[#d2a63d]/50 bg-[#d2a63d]/10 text-[#eaeef2] hover:bg-[#d2a63d] hover:text-[#010717] px-6 md:px-8 py-3 rounded-full font-black text-[10px] uppercase tracking-widest transition-all shadow-[0_0_20px_rgba(210,166,61,0.15)]">
+                    Dashboard <i class="fas fa-arrow-right ml-2"></i>
                 </a>
             @else
                 <a href="{{ route('login') }}" 
-                   class="bg-white text-slate-950 px-8 py-4 rounded-2xl font-black italic text-xs uppercase hover:bg-blue-600 hover:text-white transition-all shadow-xl">
+                   class="border border-[#d2a63d]/50 bg-transparent text-[#d2a63d] hover:bg-[#d2a63d] hover:text-[#010717] px-6 md:px-8 py-3 rounded-full font-black text-[10px] uppercase tracking-widest transition-all shadow-[0_0_20px_rgba(210,166,61,0.1)]">
                     Establish Access <i class="fas fa-lock ml-2"></i>
                 </a>
             @endauth
         </div>
     </nav>
 
-    <div class="relative min-h-[80vh] flex flex-col items-center justify-center text-center px-6">
-        <div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-blue-600/10 rounded-full blur-[120px] -z-0"></div>
+    {{-- HERO SECTION --}}
+    <main class="flex-1 flex flex-col items-center justify-center text-center px-6 relative z-10 w-full mt-10 md:mt-0">
+        
+        <div class="border border-[#d2a63d]/30 bg-[#010717] backdrop-blur-md px-6 py-2 rounded-full mb-8 shadow-xl inline-flex items-center gap-3">
+            <i class="fas fa-bolt text-[#d2a63d] text-[10px]"></i>
+            <span class="text-[9px] font-black uppercase tracking-[0.4em] text-[#eaeef2] italic">
+                Intelligent Surveillance Engine
+            </span>
+        </div>
+        
+        <h1 class="text-5xl md:text-7xl lg:text-[6rem] font-black italic uppercase tracking-tighter leading-[1] mb-8">
+            <span class="text-[#eaeef2]">Employee</span> 
+            <span class="text-gradient-gold drop-shadow-[0_0_25px_rgba(210,166,61,0.2)]">Activity</span><br>
+            <span class="text-[#eaeef2]">Monitoring</span> 
+            <span class="text-[#eaeef2]/60">System</span>
+        </h1>
 
-        <div class="relative z-10 space-y-8">
-            <div class="inline-block glass border border-white/10 px-6 py-2 rounded-full mb-4">
-                <p class="text-[10px] font-black uppercase tracking-[0.5em] text-blue-400 italic">
-                    <i class="fas fa-microchip mr-2"></i> AI-Powered Fleet Monitoring
-                </p>
+        <p class="max-w-3xl mx-auto text-[#eaeef2]/70 font-medium italic text-xs md:text-sm leading-relaxed mb-16">
+            The ultimate EAMS architecture for modern enterprises. Seamlessly track productivity through stealth live screen monitoring, AI distraction detection, and automated operational logs—all from your browser.
+        </p>
+
+        {{-- Oval Feature Cards --}}
+        <div class="flex flex-col md:flex-row justify-center gap-6 w-full max-w-4xl mx-auto">
+            
+            <div class="bg-[#030712] border border-slate-800 hover:border-[#d2a63d]/50 rounded-[2rem] px-6 py-8 flex-1 flex flex-col items-center justify-center gap-4 transition-all shadow-2xl group">
+                <i class="fas fa-video text-[#d2a63d] text-2xl group-hover:scale-110 transition-transform"></i>
+                <h4 class="text-[9px] font-black uppercase tracking-[0.2em] text-[#eaeef2]">Live Stealth<br>Tracking</h4>
             </div>
             
-            <h2 class="text-6xl md:text-9xl font-black italic tracking-tighter leading-none uppercase">
-                Remote <span class="text-blue-600">Control</span> <br> 
-                <span class="text-slate-200">Total</span> Oversight.
-            </h2>
-
-            <p class="max-w-2xl mx-auto text-slate-400 font-medium italic text-sm md:text-lg leading-relaxed">
-                The ultimate operating system for modern offices. Live screen monitoring, 
-                AI tool detection, and automated productivity reports—all from your browser.
-            </p>
-
-            <div class="pt-10 flex flex-wrap justify-center gap-6">
-                <div class="glass border border-white/5 p-6 rounded-[2.5rem] w-48 text-center">
-                    <i class="fas fa-video text-blue-500 text-2xl mb-4"></i>
-                    <h4 class="text-[10px] font-black uppercase italic tracking-widest">Live Stream</h4>
-                </div>
-                <div class="glass border border-white/5 p-6 rounded-[2.5rem] w-48 text-center">
-                    <i class="fas fa-brain text-emerald-500 text-2xl mb-4"></i>
-                    <h4 class="text-[10px] font-black uppercase italic tracking-widest">AI Detection</h4>
-                </div>
-                <div class="glass border border-white/5 p-6 rounded-[2.5rem] w-48 text-center">
-                    <i class="fas fa-history text-indigo-500 text-2xl mb-4"></i>
-                    <h4 class="text-[10px] font-black uppercase italic tracking-widest">10Yr Archives</h4>
-                </div>
+            <div class="bg-[#030712] border border-slate-800 hover:border-[#d2a63d]/50 rounded-[2rem] px-6 py-8 flex-1 flex flex-col items-center justify-center gap-4 transition-all shadow-2xl group">
+                <i class="fas fa-robot text-[#d2a63d] text-2xl group-hover:scale-110 transition-transform"></i>
+                <h4 class="text-[9px] font-black uppercase tracking-[0.2em] text-[#eaeef2]">AI Distraction<br>Radar</h4>
             </div>
-        </div>
-    </div>
+            
+            <div class="bg-[#030712] border border-slate-800 hover:border-[#d2a63d]/50 rounded-[2rem] px-6 py-8 flex-1 flex flex-col items-center justify-center gap-4 transition-all shadow-2xl group">
+                <i class="fas fa-database text-[#d2a63d] text-2xl group-hover:scale-110 transition-transform"></i>
+                <h4 class="text-[9px] font-black uppercase tracking-[0.2em] text-[#eaeef2]">Permanent<br>Telemetry</h4>
+            </div>
 
-    <footer class="p-10 text-center relative z-10 border-t border-white/5 mt-20">
-        <p class="text-[9px] font-black text-slate-600 uppercase tracking-[0.5em] italic">
-            &copy; 2026 Admin Pro OS | Structural Management Unit
+        </div>
+    </main>
+
+    {{-- FOOTER --}}
+    <footer class="py-8 text-center relative z-10 mt-auto">
+        <p class="text-[9px] font-black text-[#eaeef2]/30 uppercase tracking-[0.4em]">
+            &copy; {{ date('Y') }} Vweb EAMS | Structural Management Unit
         </p>
     </footer>
 

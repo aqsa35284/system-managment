@@ -5,7 +5,8 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\{User, Task, Attendance, Screenshot, AiUsageLog, ShiftReport};
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\{Storage};
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\Auth; // ⭐ Auth Facade Added
 use Carbon\Carbon;
 
 class DashboardController extends Controller
@@ -15,19 +16,23 @@ class DashboardController extends Controller
     // ─────────────────────────────────────────────────────────────
     public function index()
     {
-        $timezone = 'Asia/Karachi';
-        $today    = Carbon::today($timezone);
+        $timezone   = 'Asia/Karachi';
+        $today      = Carbon::today($timezone);
+        $company_id = Auth::user()->company_id; // ⭐ Current Company Locked
 
-        // ── All employees ─────────────────────────────────────────
+        // ── All employees (Isolated) ──────────────────────────────
         $employees = User::with('department')
+            ->where('company_id', $company_id)
             ->where('role', 'employee')
             ->get();
 
         $totalEmployees = $employees->count();
 
-        // ── Online employees (have open attendance today, updated in last 5 min) ──
-        //  FIX: Removed $timezone from now() so it matches default Laravel Database Timezone
-        $onlineEmployeeIds = Attendance::where('date', $today->toDateString())
+        // ── Online Employees (Isolated) ───────────────────────────
+        $onlineEmployeeIds = Attendance::whereHas('user', function($q) use ($company_id) {
+                $q->where('company_id', $company_id);
+            })
+            ->where('date', $today->toDateString())
             ->whereNull('check_out')
             ->where('updated_at', '>=', now()->subMinutes(5)) 
             ->pluck('user_id')
@@ -35,15 +40,20 @@ class DashboardController extends Controller
 
         $onlineCount = count($onlineEmployeeIds);
 
-        // ── Active Tasks (not completed) ──────────────────────────
-        $activeTasks  = Task::whereNotIn('status', ['completed'])->count();
-        $pendingTasks = Task::where('status', 'to_do')->count();
+        // ── Active Tasks (Isolated) ───────────────────────────────
+        $activeTasks  = Task::where('company_id', $company_id)->whereNotIn('status', ['completed'])->count();
+        $pendingTasks = Task::where('company_id', $company_id)->where('status', 'to_do')->count();
 
-        // ── Today's screenshots (pulses) ──────────────────────────
-        $todayPulses = Screenshot::whereDate('created_at', $today)->count();
+        // ── Today's screenshots (Isolated) ────────────────────────
+        $todayPulses = Screenshot::whereHas('user', function($q) use ($company_id) {
+                $q->where('company_id', $company_id);
+            })->whereDate('created_at', $today)->count();
 
-        // ── Today's AI usage summary (top tools) ──────────────────
-        $todayAiSummary = AiUsageLog::whereDate('log_date', $today)
+        // ── Today's AI usage summary (Isolated) ───────────────────
+        $todayAiSummary = AiUsageLog::whereHas('user', function($q) use ($company_id) {
+                $q->where('company_id', $company_id);
+            })
+            ->whereDate('log_date', $today)
             ->where('ai_tool', '!=', 'IDLE')
             ->selectRaw('ai_tool, COALESCE(SUM(duration_seconds), 0) as total_seconds, COUNT(DISTINCT user_id) as user_count')
             ->groupBy('ai_tool')
@@ -51,9 +61,12 @@ class DashboardController extends Controller
             ->take(6)
             ->get();
 
-        // ── Social media today ────────────────────────────────────
-        $socialTools   = ['YOUTUBE', 'FACEBOOK', 'INSTAGRAM', 'TIKTOK', 'WHATSAPP', 'TWITTER', 'NETFLIX', 'SNAPCHAT'];
-        $socialRecord  = AiUsageLog::whereDate('log_date', $today)
+        $socialTools   = ['YOUTUBE', 'FACEBOOK', 'INSTAGRAM', 'TIKTOK', 'WHATSAPP', 'TWITTER', 'NETFLIX', 'SNAPCHAT', 'CHATGPT', 'GEMINI', 'DEEPSEEK', 'CLAUDE'];
+        
+        $socialRecord  = AiUsageLog::whereHas('user', function($q) use ($company_id) {
+                $q->where('company_id', $company_id);
+            })
+            ->whereDate('log_date', $today)
             ->whereIn('ai_tool', $socialTools)
             ->selectRaw('COUNT(DISTINCT user_id) as users, COALESCE(SUM(duration_seconds), 0) as seconds')
             ->first();
@@ -90,82 +103,96 @@ class DashboardController extends Controller
                 ->exists();
 
             $empActiveTasks = Task::where('user_id', $emp->id)
+                ->where('company_id', $company_id)
                 ->whereNotIn('status', ['completed'])
                 ->count();
 
+            $totalWorkSeconds = $att ? $att->work_time : 0;
+            $distractionSeconds = AiUsageLog::where('user_id', $emp->id)
+                ->whereDate('log_date', $today)
+                ->where('ai_tool', '!=', 'IDLE')
+                ->sum('duration_seconds');
+                
+            $pureWorkSeconds = max(0, $totalWorkSeconds - $distractionSeconds);
+
             $employeeStatus[] = [
-                'employee'       => $emp,
-                'is_online'      => $isOnline,
-                'work_seconds'   => $att ? $att->work_time : 0,
-                'check_in'       => $att ? $att->check_in : null,
-                'latest_snap'    => $latestSnap,
-                'ai_tools'       => $empAiToday,
-                'social_alert'   => $empSocial,
-                'active_tasks'   => $empActiveTasks,
+                'employee'            => $emp,
+                'is_online'           => $isOnline,
+                'work_seconds'        => $totalWorkSeconds,
+                'distraction_seconds' => $distractionSeconds,
+                'pure_work_seconds'   => $pureWorkSeconds,
+                'check_in'            => $att ? $att->check_in : null,
+                'latest_snap'         => $latestSnap,
+                'ai_tools'            => $empAiToday,
+                'social_alert'        => $empSocial,
+                'active_tasks'        => $empActiveTasks,
             ];
         }
 
-        // Sort: online first, then offline
         usort($employeeStatus, fn($a, $b) => $b['is_online'] <=> $a['is_online']);
 
-        // ── Latest 6 screenshots across all employees ──────────────
+        // ── Latest 6 screenshots across all employees (Isolated) ───
         $liveScreenshots = Screenshot::with('user')
+            ->whereHas('user', function($q) use ($company_id) {
+                $q->where('company_id', $company_id);
+            })
             ->whereDate('created_at', $today)
             ->latest()
             ->take(6)
             ->get();
 
-        // ── Weekly work hours chart (all employees aggregate) ──────
+        // ── Weekly work hours chart (Isolated) ─────────────────────
         $weeklyData = [];
         for ($i = 6; $i >= 0; $i--) {
             $date  = Carbon::now($timezone)->subDays($i);
-            $secs  = Attendance::whereDate('date', $date->toDateString())->sum('work_time') ?: 0;
+            $secs  = Attendance::whereHas('user', function($q) use ($company_id) {
+                    $q->where('company_id', $company_id);
+                })->whereDate('date', $date->toDateString())->sum('work_time') ?: 0;
+                
             $weeklyData[] = [
                 'day'   => $date->format('D'),
                 'hours' => round($secs / 3600, 1),
             ];
         }
 
-        // ── Shift reports (last 7 days) ────────────────────────────
+        // ── Shift reports (Isolated) ───────────────────────────────
         $shiftSummary = ShiftReport::with('user')
+            ->whereHas('user', function($q) use ($company_id) {
+                $q->where('company_id', $company_id);
+            })
             ->where('report_date', '>=', Carbon::now($timezone)->subDays(7)->toDateString())
             ->orderByDesc('report_date')
             ->take(10)
             ->get();
 
-        // ── Tasks overview ─────────────────────────────────────────
-        $tasksByStatus = Task::selectRaw('status, COUNT(*) as count')
+        // ── Tasks overview (Isolated) ──────────────────────────────
+        $tasksByStatus = Task::where('company_id', $company_id)
+            ->selectRaw('status, COUNT(*) as count')
             ->groupBy('status')
             ->get()
             ->pluck('count', 'status')
             ->toArray();
 
         return view('admin.dashboard', compact(
-            'totalEmployees',
-            'onlineCount',
-            'onlineEmployeeIds',
-            'activeTasks',
-            'pendingTasks',
-            'todayPulses',
-            'todayAiSummary',
-            'socialToday',
-            'employeeStatus',
-            'liveScreenshots',
-            'weeklyData',
-            'shiftSummary',
-            'tasksByStatus'
+            'totalEmployees', 'onlineCount', 'onlineEmployeeIds', 'activeTasks',
+            'pendingTasks', 'todayPulses', 'todayAiSummary', 'socialToday',
+            'employeeStatus', 'liveScreenshots', 'weeklyData', 'shiftSummary', 'tasksByStatus'
         ));
     }
 
     // ─────────────────────────────────────────────────────────────
-    // LIVE SCREENSHOTS JSON
+    // LIVE SCREENSHOTS JSON (Isolated)
     // ─────────────────────────────────────────────────────────────
     public function liveScreenshots()
     {
-        $timezone = 'Asia/Karachi';
-        $today    = Carbon::today($timezone);
+        $timezone   = 'Asia/Karachi';
+        $today      = Carbon::today($timezone);
+        $company_id = Auth::user()->company_id;
 
         $shots = Screenshot::with('user')
+            ->whereHas('user', function($q) use ($company_id) {
+                $q->where('company_id', $company_id);
+            })
             ->whereDate('created_at', $today)
             ->latest()
             ->take(12)
@@ -183,55 +210,50 @@ class DashboardController extends Controller
     }
 
     // ─────────────────────────────────────────────────────────────
-    // LIVE EMPLOYEE STATUS JSON
+    // LIVE EMPLOYEE STATUS JSON (Isolated)
     // ─────────────────────────────────────────────────────────────
     public function liveEmployeeStatus()
     {
         $timezone    = 'Asia/Karachi';
         $today       = Carbon::today($timezone);
-        $socialTools = ['YOUTUBE', 'FACEBOOK', 'INSTAGRAM', 'TIKTOK', 'WHATSAPP', 'TWITTER', 'NETFLIX', 'SNAPCHAT'];
+        $company_id  = Auth::user()->company_id;
+        $socialTools = ['YOUTUBE', 'FACEBOOK', 'INSTAGRAM', 'TIKTOK', 'WHATSAPP', 'TWITTER', 'NETFLIX', 'SNAPCHAT', 'CHATGPT', 'GEMINI', 'DEEPSEEK', 'CLAUDE'];
 
-        //  FIX: Removed $timezone from now() here as well
-        $onlineEmployeeIds = Attendance::where('date', $today->toDateString())
+        $onlineEmployeeIds = Attendance::whereHas('user', function($q) use ($company_id) {
+                $q->where('company_id', $company_id);
+            })
+            ->where('date', $today->toDateString())
             ->whereNull('check_out')
             ->where('updated_at', '>=', now()->subMinutes(5))
             ->pluck('user_id')
             ->toArray();
 
-        $data = User::where('role', 'employee')
+        $data = User::where('company_id', $company_id)
+            ->where('role', 'employee')
             ->get()
             ->map(function ($emp) use ($onlineEmployeeIds, $today, $socialTools) {
                 $isOnline = in_array($emp->id, $onlineEmployeeIds);
 
-                $att = Attendance::where('user_id', $emp->id)
-                    ->where('date', $today->toDateString())
-                    ->latest('updated_at')
-                    ->first();
+                $att = Attendance::where('user_id', $emp->id)->where('date', $today->toDateString())->latest('updated_at')->first();
+                $latestSnap = Screenshot::where('user_id', $emp->id)->whereDate('created_at', $today)->latest()->first();
 
-                $latestSnap = Screenshot::where('user_id', $emp->id)
-                    ->whereDate('created_at', $today)
-                    ->latest()
-                    ->first();
+                $empAiToday = AiUsageLog::where('user_id', $emp->id)->whereDate('log_date', $today)->where('ai_tool', '!=', 'IDLE')->pluck('ai_tool')->toArray();
+                $empSocial = AiUsageLog::where('user_id', $emp->id)->whereDate('log_date', $today)->whereIn('ai_tool', $socialTools)->exists();
 
-                $empAiToday = AiUsageLog::where('user_id', $emp->id)
-                    ->whereDate('log_date', $today)
-                    ->where('ai_tool', '!=', 'IDLE')
-                    ->pluck('ai_tool')
-                    ->toArray();
-
-                $empSocial = AiUsageLog::where('user_id', $emp->id)
-                    ->whereDate('log_date', $today)
-                    ->whereIn('ai_tool', $socialTools)
-                    ->exists();
+                $totalWorkSeconds = $att ? $att->work_time : 0;
+                $distractionSeconds = AiUsageLog::where('user_id', $emp->id)->whereDate('log_date', $today)->where('ai_tool', '!=', 'IDLE')->sum('duration_seconds');
+                $pureWorkSeconds = max(0, $totalWorkSeconds - $distractionSeconds);
 
                 return [
-                    'id'           => $emp->id,
-                    'is_online'    => $isOnline,
-                    'work_seconds' => $att ? $att->work_time : 0,
-                    'check_in'     => $att && $att->check_in ? $att->check_in : null,
-                    'ai_tools'     => $empAiToday,
-                    'social_alert' => $empSocial,
-                    'latest_snap'  => $latestSnap ? [
+                    'id'                  => $emp->id,
+                    'is_online'           => $isOnline,
+                    'work_seconds'        => $totalWorkSeconds,
+                    'distraction_seconds' => $distractionSeconds,
+                    'pure_work_seconds'   => $pureWorkSeconds,
+                    'check_in'            => $att && $att->check_in ? $att->check_in : null,
+                    'ai_tools'            => $empAiToday,
+                    'social_alert'        => $empSocial,
+                    'latest_snap'         => $latestSnap ? [
                         'url'   => asset('storage/' . $latestSnap->image_path),
                         'title' => $latestSnap->window_title ?? 'No title',
                         'time'  => $latestSnap->created_at->diffForHumans(),
@@ -243,22 +265,24 @@ class DashboardController extends Controller
     }
 
     // ─────────────────────────────────────────────────────────────
-    // AI HEATMAP JSON
+    // AI HEATMAP JSON (Isolated)
     // ─────────────────────────────────────────────────────────────
     public function aiHeatmap()
     {
         $timezone    = 'Asia/Karachi';
         $today       = Carbon::today($timezone)->toDateString();
-        $socialTools = ['YOUTUBE', 'FACEBOOK', 'INSTAGRAM', 'TIKTOK', 'WHATSAPP', 'TWITTER', 'NETFLIX', 'SNAPCHAT'];
+        $company_id  = Auth::user()->company_id;
+        $socialTools = ['YOUTUBE', 'FACEBOOK', 'INSTAGRAM', 'TIKTOK', 'WHATSAPP', 'TWITTER', 'NETFLIX', 'SNAPCHAT', 'CHATGPT', 'GEMINI', 'DEEPSEEK', 'CLAUDE'];
 
-        $data = User::where('role', 'employee')
+        $data = User::where('company_id', $company_id)
+            ->where('role', 'employee')
             ->with(['aiUsageLogs' => function ($q) use ($today) {
                 $q->whereDate('log_date', $today)->where('ai_tool', '!=', 'IDLE');
             }])
             ->get()
             ->map(function ($emp) use ($socialTools) {
-                $aiTools     = $emp->aiUsageLogs->whereNotIn('ai_tool', $socialTools);
-                $socialLogs  = $emp->aiUsageLogs->whereIn('ai_tool', $socialTools);
+                $aiTools    = $emp->aiUsageLogs->whereNotIn('ai_tool', $socialTools);
+                $socialLogs = $emp->aiUsageLogs->whereIn('ai_tool', $socialTools);
                 return [
                     'id'             => $emp->id,
                     'name'           => $emp->name,
@@ -273,10 +297,15 @@ class DashboardController extends Controller
     }
 
     // ─────────────────────────────────────────────────────────────
-    // EMPLOYEE AI ACTIVITY JSON
+    // EMPLOYEE AI ACTIVITY JSON (Isolated)
     // ─────────────────────────────────────────────────────────────
     public function employeeAiActivity($id)
     {
+        $company_id = Auth::user()->company_id;
+        
+        $empExists = User::where('id', $id)->where('company_id', $company_id)->exists();
+        if (!$empExists) return response()->json([], 403);
+
         $timezone = 'Asia/Karachi';
         $today    = Carbon::today($timezone)->toDateString();
 
@@ -294,45 +323,69 @@ class DashboardController extends Controller
     }
 
     // ─────────────────────────────────────────────────────────────
-    // SHIFT INTEL PAGE
+    // SHIFT INTEL PAGE (Isolated)
     // ─────────────────────────────────────────────────────────────
     public function shiftIntel(Request $request)
     {
-        $timezone = 'Asia/Karachi';
-        $period   = $request->get('period', 'today');
-        $today    = Carbon::today($timezone);
+        $timezone   = 'Asia/Karachi';
+        $period     = $request->get('period', 'all');
+        $operator   = $request->get('user_id', '');
+        $today      = Carbon::today($timezone);
+        $company_id = Auth::user()->company_id;
 
-        $query = ShiftReport::with('user');
+        $query = ShiftReport::with('user')->whereHas('user', function($q) use ($company_id) {
+            $q->where('company_id', $company_id);
+        });
+
+        if (!empty($operator)) {
+            $query->where('user_id', $operator);
+        }
 
         switch ($period) {
             case 'weekly':
-                $query->whereBetween('report_date', [
-                    Carbon::now($timezone)->startOfWeek()->toDateString(),
-                    Carbon::now($timezone)->endOfWeek()->toDateString(),
-                ]);
+                $startOfWeek = Carbon::now($timezone)->startOfWeek()->toDateString();
+                $endOfWeek   = Carbon::now($timezone)->endOfWeek()->toDateString();
+                $query->whereBetween('report_date', [$startOfWeek, $endOfWeek]);
                 break;
             case 'monthly':
-                $query->whereMonth('report_date', $today->month)
-                      ->whereYear('report_date',  $today->year);
+                $query->whereMonth('report_date', $today->month)->whereYear('report_date', $today->year);
                 break;
             case 'yearly':
                 $query->whereYear('report_date', $today->year);
                 break;
-            default:
+            case 'today':
                 $query->where('report_date', $today->toDateString());
+                break;
         }
 
-        $reports = $query->orderByDesc('report_date')->paginate(20);
+        $kpiData = (clone $query)->get();
+        
+        $stats = [
+            'total_processed' => $kpiData->count(),
+            'morning_count'   => $kpiData->where('shift_name', 'Morning')->count(),
+            'afternoon_count' => $kpiData->where('shift_name', 'Afternoon')->count(),
+            'evening_count'   => $kpiData->where('shift_name', 'Evening')->count(),
+            'night_count'     => $kpiData->where('shift_name', 'Night')->count()
+        ];
 
-        return view('admin.reports.shifts', compact('reports', 'period'));
+        $reports = $query->orderByDesc('report_date')
+                         ->orderByDesc('created_at')
+                         ->paginate(20)
+                         ->withQueryString();
+
+        return view('admin.reports.shifts', compact('reports', 'period', 'stats'));
     }
 
     // ─────────────────────────────────────────────────────────────
-    // DELETE SCREENSHOT
+    // DELETE SCREENSHOT (Isolated)
     // ─────────────────────────────────────────────────────────────
     public function destroyScreenshot($id)
     {
-        $shot = Screenshot::findOrFail($id);
+        $company_id = Auth::user()->company_id;
+        
+        $shot = Screenshot::whereHas('user', function($q) use ($company_id) {
+            $q->where('company_id', $company_id);
+        })->findOrFail($id);
 
         if (Storage::disk('public')->exists($shot->image_path)) {
             Storage::disk('public')->delete($shot->image_path);

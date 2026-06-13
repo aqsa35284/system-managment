@@ -10,90 +10,131 @@ use Carbon\Carbon;
 
 class AttendanceController extends Controller
 {
+    // ⭐ Global Timezone
     protected $timezone = 'Asia/Karachi';
 
-    /**
-     * Display Attendance Logs
-     */
+    // ─────────────────────────────────────────────────────────────
+    // ATTENDANCE INDEX
+    // ─────────────────────────────────────────────────────────────
     public function index()
     {
-        // Variable name 'attendances' use kiya hai taake aapki blade file se match kare
         $attendances = Attendance::where('user_id', Auth::id())
             ->orderByDesc('date')
             ->orderByDesc('check_in')
             ->paginate(15);
 
-       return view('employee.attendance.index', compact('attendances'));
+        // ⭐ Fixed view path
+        return view('employee.attendance.index', compact('attendances'));
     }
 
-    /**
-     * Handle Check-In (Advanced Logic)
-     */
+    // ─────────────────────────────────────────────────────────────
+    // CHECK IN
+    // ─────────────────────────────────────────────────────────────
     public function checkIn()
     {
-        $today = Carbon::today($this->timezone);
-        $now   = Carbon::now($this->timezone);
+        $today  = Carbon::today($this->timezone);
+        $now    = Carbon::now($this->timezone);
         $userId = Auth::id();
 
-        // ✅ FIX: Pehle check karo ke kya aaj ka koi active session (Check-out null) pehle se mojud hai?
+        // ⭐ Check existing active session
         $existingSession = Attendance::where('user_id', $userId)
-            ->whereDate('date', $today)
-            ->whereNull('check_out')
-            ->first();
-
-        if ($existingSession) {
-            // Agar session mojud hai toh naya create na karo, usi ko continue karo
-            return response()->json([
-                'success' => true, 
-                'message' => 'Session restored', 
-                'work_time' => $existingSession->work_time
-            ]);
-        }
-
-        // Agar koi active session nahi hai, tab naya create karo
-        Attendance::create([
-            'user_id'   => $userId,
-            'date'      => $today->toDateString(),
-            'check_in'  => $now->format('H:i:s'),
-            'work_time' => 0,
-            'status'    => 'present', // Status add kar diya
-        ]);
-
-        return response()->json(['success' => true, 'message' => 'New session started']);
-    }
-
-    /**
-     * Handle Check-Out
-     */
-    public function checkOut()
-    {
-        $today = Carbon::today($this->timezone);
-        $userId = Auth::id();
-
-        // Sirf wahi record update karo jo aaj ka hai aur check_out null hai
-        $att = Attendance::where('user_id', $userId)
             ->whereDate('date', $today)
             ->whereNull('check_out')
             ->latest()
             ->first();
 
-        if ($att) {
-            $att->update([
-                'check_out' => Carbon::now($this->timezone)->format('H:i:s'),
-                'status'    => 'offline',
+        // ⭐ Restore existing session
+        if ($existingSession) {
+
+            return response()->json([
+                'success'   => true,
+                'message'   => 'Session restored',
+                'work_time' => $existingSession->work_time
             ]);
-            return response()->json(['success' => true, 'message' => 'Checked out successfully']);
         }
 
-        return response()->json(['success' => false, 'message' => 'No active session found']);
+        // ⭐ Create new attendance session
+        Attendance::create([
+            'user_id'   => $userId,
+            'date'      => $today->toDateString(),
+            'check_in'  => $now->format('H:i:s'),
+            'work_time' => 0,
+            'status'    => 'present',
+            'created_at'=> $now,
+            'updated_at'=> $now,
+        ]);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'New session started'
+        ]);
     }
 
-    /**
-     * Silent Sync for Work Time (Backend reinforcement)
-     */
+    // ─────────────────────────────────────────────────────────────
+    // CHECK OUT
+    // ─────────────────────────────────────────────────────────────
+    public function checkOut()
+    {
+        $today  = Carbon::today($this->timezone);
+        $now    = Carbon::now($this->timezone);
+        $userId = Auth::id();
+
+        // ⭐ Find active session only
+        $attendance = Attendance::where('user_id', $userId)
+            ->whereDate('date', $today)
+            ->whereNull('check_out')
+            ->latest()
+            ->first();
+
+        if ($attendance) {
+
+            $attendance->update([
+                'check_out' => $now->format('H:i:s'),
+                'status'    => 'offline',
+                'updated_at'=> $now,
+            ]);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Checked out successfully'
+            ]);
+        }
+
+        return response()->json([
+            'success' => false,
+            'message' => 'No active session found'
+        ]);
+    }
+
+    // ─────────────────────────────────────────────────────────────
+    // REPORT IDLE
+    // ─────────────────────────────────────────────────────────────
     public function reportIdle(Request $request)
     {
-        // Agar aap future mein idle time detect karna chahen toh yahan logic aayegi
-        return response()->json(['ok' => true]);
+        $today  = Carbon::today($this->timezone);
+        $now    = Carbon::now($this->timezone);
+        $userId = Auth::id();
+
+        // ⭐ Update current active session time
+        $attendance = Attendance::where('user_id', $userId)
+            ->whereDate('date', $today)
+            ->whereNull('check_out')
+            ->latest()
+            ->first();
+
+        if ($attendance) {
+
+            $attendance->update([
+                'work_time' => (int) (
+                    $request->seconds ?? $attendance->work_time
+                ),
+
+                'updated_at' => $now,
+            ]);
+        }
+
+        return response()->json([
+            'ok' => true
+        ]);
     }
 }

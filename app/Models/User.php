@@ -1,5 +1,7 @@
 <?php
+
 namespace App\Models;
+
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
@@ -22,6 +24,7 @@ class User extends Authenticatable
         'profile_image',
         'status',
         'screenshot_trigger',   // ← یہ ضروری ہے
+        'company_id',           // 🚀 YEH SAB SE ZAROORI HAI (Isi se login theek hoga)
     ];
 
     protected $hidden = ['password', 'remember_token'];
@@ -32,9 +35,8 @@ class User extends Authenticatable
         'screenshot_trigger' => 'boolean',
     ];
 
-    public function department()
-    {
-        return $this->belongsTo(Department::class);
+    public function department() {
+        return $this->belongsTo(Department::class, 'department_id');
     }
 
     public function projects()
@@ -61,4 +63,15 @@ class User extends Authenticatable
     {
         return $this->hasMany(Attendance::class);
     }
+ 
+    // Inside User model add this relationship
+    public function company()
+    {
+        return $this->belongsTo(Company::class);
+    }
+    // Agar user 'assistant_admin' hai toh wo kin companies ko manage karta hai
+public function managedCompanies()
+{
+    return $this->belongsToMany(Company::class, 'company_assistant', 'user_id', 'company_id');
+}
 }

@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\Department;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth; // ⭐ Auth Facade add karna lazmi hai
 
 class DepartmentController extends Controller
 {
@@ -13,8 +14,8 @@ class DepartmentController extends Controller
      */
     public function index()
     {
-        // Saare departments database se le kar aao
-        $departments = Department::all();
+        // ⭐ FIX: Explicitly sir apni company ke departments call karein
+        $departments = Department::where('company_id', Auth::user()->company_id)->get();
         return view('admin.departments.index', compact('departments'));
     }
 
@@ -31,16 +32,22 @@ class DepartmentController extends Controller
      */
     public function store(Request $request)
     {
-        // Data validate karein
         $request->validate([
-            'name' => 'required|unique:departments,name|max:255',
+            'name' => [
+                'required', 
+                'max:255',
+                // ⭐ UNIQUE RULE: Sirf is company_id ke andar name unique hona chahiye
+                \Illuminate\Validation\Rule::unique('departments')->where(function ($query) {
+                    return $query->where('company_id', Auth::user()->company_id);
+                })
+            ],
             'department_code' => 'nullable|string|max:50',
         ]);
 
-        // Database mein save karein
         Department::create([
-            'name' => $request->name,
+            'name'            => $request->name,
             'department_code' => $request->department_code,
+            'company_id'      => Auth::user()->company_id, // ⭐ FIX: Explicitly assign
         ]);
 
         return redirect()->route('admin.departments.index')
@@ -52,7 +59,9 @@ class DepartmentController extends Controller
      */
     public function edit($id)
     {
-        $department = Department::findOrFail($id);
+        // ⭐ FIX: Check isolation before edit
+        $department = Department::where('company_id', Auth::user()->company_id)->findOrFail($id);
+        
         return view('admin.departments.edit', compact('department'));
     }
 
@@ -61,15 +70,22 @@ class DepartmentController extends Controller
      */
     public function update(Request $request, $id)
     {
-        $department = Department::findOrFail($id);
+        // ⭐ FIX: Check isolation before update
+        $department = Department::where('company_id', Auth::user()->company_id)->findOrFail($id);
 
         $request->validate([
-            'name' => 'required|max:255|unique:departments,name,' . $id,
+            'name' => [
+                'required', 
+                'max:255',
+                \Illuminate\Validation\Rule::unique('departments')->where(function ($query) {
+                    return $query->where('company_id', Auth::user()->company_id);
+                })->ignore($department->id)
+            ],
             'department_code' => 'nullable|string|max:50',
         ]);
 
         $department->update([
-            'name' => $request->name,
+            'name'            => $request->name,
             'department_code' => $request->department_code,
         ]);
 
@@ -82,7 +98,9 @@ class DepartmentController extends Controller
      */
     public function destroy($id)
     {
-        $department = Department::findOrFail($id);
+        // ⭐ FIX: Check isolation before delete
+        $department = Department::where('company_id', Auth::user()->company_id)->findOrFail($id);
+        
         $department->delete();
 
         return redirect()->route('admin.departments.index')

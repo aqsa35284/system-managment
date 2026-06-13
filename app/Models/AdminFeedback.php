@@ -9,6 +9,7 @@ class AdminFeedback extends Model
     protected $table = 'admin_feedbacks'; // Table name specify kar diya
 
     protected $fillable = [
+        'company_id',
         'admin_id', 
         'employee_id', 
         'task_id', 
@@ -32,4 +33,8 @@ public function task()
 {
     return $this->belongsTo(Task::class, 'task_id');
 }
+ public function company()
+    {
+        return $this->belongsTo(Company::class);
+    }
 }

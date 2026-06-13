@@ -13,10 +13,14 @@ return Application::configure(basePath: dirname(__DIR__))
     )
     ->withMiddleware(function (Middleware $middleware) {
         
-        // 🚀 Yahan hum Admin aur Employee ke middleware register kar rahe hain
+        // Yahan $middleware ke sath '$' lagana lazmi tha
         $middleware->alias([
-            'admin'    => \App\Http\Middleware\AdminMiddleware::class,
-            'employee' => \App\Http\Middleware\EmployeeMiddleware::class,
+            'admin'              => \App\Http\Middleware\AdminMiddleware::class,
+            'employee'           => \App\Http\Middleware\EmployeeMiddleware::class,
+            'super_admin'        => \App\Http\Middleware\SuperAdminMiddleware::class,
+            'check_subscription' => \App\Http\Middleware\CheckSubscription::class,
+            'shadow_mode'        => \App\Http\Middleware\ShadowMode::class,
+            'shadow_audit'       => \App\Http\Middleware\ShadowAuditMiddleware::class,
         ]);
 
     })

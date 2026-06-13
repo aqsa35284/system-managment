@@ -14,6 +14,7 @@ class Attendance extends Model
      * Mass assignable attributes.
      */
     protected $fillable = [
+        'company_id', 
         'user_id', 
         'date', 
         'check_in', 
@@ -65,5 +66,9 @@ class Attendance extends Model
     {
         return $query->whereNull('check_out')
                      ->whereDate('date', Carbon::today());
+    }
+     public function company()
+    {
+        return $this->belongsTo(Company::class);
     }
 }

@@ -3,9 +3,21 @@
 namespace App\Http\Controllers\Employee;
 
 use App\Http\Controllers\Controller;
-use App\Models\{User, Task, Attendance, Screenshot, AiUsageLog, AdminFeedback, ShiftReport, TaskForward};
+use App\Models\User;
+use App\Models\Task;
+use App\Models\Attendance;
+use App\Models\Screenshot;
+use App\Models\AiUsageLog;
+use App\Models\AdminFeedback;
+use App\Models\ShiftReport;
+use App\Models\TaskForward;
+use App\Models\EmployeeFeedback;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\{Auth, Storage, DB, Log};
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Http;
 use Carbon\Carbon;
 use thiagoalessio\TesseractOCR\TesseractOCR;
 
@@ -19,49 +31,49 @@ class DashboardController extends Controller
     // ─────────────────────────────────────────────────────────────
     public function index()
     {
-        $user     = Auth::user();
-        $today    = Carbon::today($this->timezone);
+        $user  = Auth::user();
+        $today = Carbon::today($this->timezone);
 
-        // ── 1. Assigned tasks (active only) ──────────────────────
         $tasks = Task::with(['project'])
             ->where('user_id', $user->id)
             ->whereNotIn('status', ['completed'])
             ->latest()
             ->get();
 
-        // ── 2. Commander feedbacks ───────────────────────────────
         $adminFeedbacks = AdminFeedback::with('task')
             ->where('employee_id', $user->id)
             ->latest()
             ->take(5)
             ->get();
 
-        // ── 3. Fleet members (For specific dashboard widgets) ────
         $fleetMembers = User::where('role', 'employee')
             ->where('id', '!=', $user->id)
             ->select('id', 'name', 'designation')
             ->orderBy('name')
             ->get();
 
-        // ⭐ 3.1 All Users (For Chat Sidebar & Forward Task Dropdown)
         $users = User::where('id', '!=', $user->id)->get();
 
-        // ── 4. Today's session restore ───────────────────────────
         $todayAttendance = Attendance::where('user_id', $user->id)
             ->whereDate('date', $today)
             ->whereNull('check_out')
             ->latest()
             ->first();
 
-        $totalSeconds = $todayAttendance ? $todayAttendance->work_time : 0;
+        $totalSeconds = $todayAttendance
+            ? $todayAttendance->work_time
+            : 0;
 
-        // ── 5. Weekly work hours ─────────────────────────────────
         $weeklyWorkHours = [];
+
         for ($i = 6; $i >= 0; $i--) {
+
             $date = Carbon::now($this->timezone)->subDays($i);
+
             $secs = Attendance::where('user_id', $user->id)
                 ->whereDate('date', $date->toDateString())
                 ->sum('work_time') ?: 0;
+
             $weeklyWorkHours[] = [
                 'day'   => $date->format('D'),
                 'date'  => $date->toDateString(),
@@ -69,7 +81,6 @@ class DashboardController extends Controller
             ];
         }
 
-        // ── 6. Recent logs ───────────────────────────────────────
         $attendanceLogs = Attendance::where('user_id', $user->id)
             ->orderByDesc('date')
             ->orderByDesc('check_in')
@@ -77,18 +88,23 @@ class DashboardController extends Controller
             ->get();
 
         return view('employee.dashboard', compact(
-            'user', 'tasks', 'adminFeedbacks', 'fleetMembers', 'users',
-            'totalSeconds', 'weeklyWorkHours', 'attendanceLogs'
+            'user',
+            'tasks',
+            'adminFeedbacks',
+            'fleetMembers',
+            'users',
+            'totalSeconds',
+            'weeklyWorkHours',
+            'attendanceLogs'
         ));
     }
 
     // ─────────────────────────────────────────────────────────────
-    // SYNC TIMER (Persistent Sync)
+    // ⭐ SYNC TIMER
     // ─────────────────────────────────────────────────────────────
     public function syncTimer(Request $request)
     {
-        $today    = Carbon::today($this->timezone);
-        $now      = Carbon::now($this->timezone);
+        $today = Carbon::today($this->timezone);
 
         $att = Attendance::where('user_id', Auth::id())
             ->whereDate('date', $today)
@@ -97,24 +113,31 @@ class DashboardController extends Controller
 
         if ($att) {
             $att->update([
-                'work_time'  => (int)($request->seconds ?? $att->work_time),
-                'updated_at' => $now, // ⭐ Timezone Fix applied
+                'work_time' => (int) ($request->seconds ?? $att->work_time),
             ]);
+            $att->touch();
         }
 
         return response()->json(['ok' => true]);
     }
 
     // ─────────────────────────────────────────────────────────────
-    // CHECK TRIGGER (Admin manual pulse)
+    // CHECK TRIGGER
     // ─────────────────────────────────────────────────────────────
     public function checkTrigger()
     {
         $userId = Auth::id();
-        $user   = DB::table('users')->where('id', $userId)->first();
+
+        $user = DB::table('users')
+            ->where('id', $userId)
+            ->first();
 
         if ($user && $user->screenshot_trigger) {
-            DB::table('users')->where('id', $userId)->update(['screenshot_trigger' => 0]);
+
+            DB::table('users')
+                ->where('id', $userId)
+                ->update(['screenshot_trigger' => 0]);
+
             return response()->json(['trigger' => true]);
         }
 
@@ -122,91 +145,141 @@ class DashboardController extends Controller
     }
 
     // ─────────────────────────────────────────────────────────────
-    // ⭐ UPLOAD SCREENSHOT (SMART TITLE GENERATION)
+    // ⭐ UPLOAD SCREENSHOT
     // ─────────────────────────────────────────────────────────────
     public function uploadScreenshot(Request $request)
     {
-        $userId   = Auth::id();
-        $now      = Carbon::now($this->timezone); // ⭐ Pakistani Time
+        $userId = Auth::id();
+        $now    = Carbon::now($this->timezone);
 
-        if (!$request->image) return response()->json(['success' => false]);
+        if (!$request->image) {
+            return response()->json(['success' => false]);
+        }
 
-        // 1. Save Image to Storage
-        $img    = str_replace(['data:image/jpeg;base64,', 'data:image/png;base64,', ' '], ['', '', '+'], $request->image);
+        $img = str_replace(
+            ['data:image/jpeg;base64,', 'data:image/png;base64,', ' '],
+            ['', '', '+'],
+            $request->image
+        );
+
         $folder = 'pulses/' . $userId . '/' . $now->format('Y/m/d');
         $path   = $folder . '/' . time() . '_' . rand(100, 999) . '.jpg';
 
         Storage::disk('public')->put($path, base64_decode($img));
 
         $windowTitle    = $request->window_title ?? 'Active Node';
-        $isAdminTrigger = (bool)($request->admin_trigger ?? false);
-
-        // ⭐ Decide Label: Admin Trigger ya Auto Scan
-        $triggerLabel = $isAdminTrigger ? '[Admin Trigger]' : '[Auto Scan]';
+        $isAdminTrigger = (bool) ($request->admin_trigger ?? false);
+        $triggerLabel   = $isAdminTrigger ? '[Admin Trigger]' : '[Auto Scan]';
 
         $screenshot = Screenshot::create([
             'user_id'            => $userId,
             'image_path'         => $path,
-            'window_title'       => $triggerLabel . ' Processing...', 
+            'window_title'       => $triggerLabel . ' Processing...',
             'triggered_by_admin' => $isAdminTrigger,
             'created_at'         => $now,
             'updated_at'         => $now,
         ]);
 
-        // 2. ⭐ ADVANCED OCR LOGIC & SECURITY ALERTS
-        $detectedTool = null;
-        
-        if (str_contains(strtolower($windowTitle), 'screen') || str_contains(strtolower($windowTitle), 'monitor') || $windowTitle === 'Active Node') {
-            try {
-                $fullImagePath = storage_path('app/public/' . $path);
-                
-                $ocr = new TesseractOCR($fullImagePath);
+        $detectedTool  = null;
+        $extractedText = '';
+        $fullImagePath = storage_path('app/public/' . $path);
+
+        try {
+            $ocr = new TesseractOCR($fullImagePath);
+
+            if (strtoupper(substr(PHP_OS, 0, 3)) === 'WIN') {
                 $ocr->executable('C:\Program Files\Tesseract-OCR\tesseract.exe');
-                
-                $extractedText = $ocr->run();
-                $detectedTool = $this->detectToolFromText($extractedText);
-                
-            } catch (\Exception $e) {
-                Log::error('OCR Failed: ' . $e->getMessage()); 
-                $detectedTool = $this->detectToolFromText($windowTitle);
+            } else {
+                $ocr->executable('/usr/bin/tesseract');
             }
-        } else {
-            $detectedTool = $this->detectToolFromText($windowTitle);
+
+            $extractedText = $ocr->run();
+
+        } catch (\Exception $e) {
+
+            try {
+                $base64 = base64_encode(file_get_contents($fullImagePath));
+
+                $response = Http::asForm()->post('https://api.ocr.space/parse/image', [
+                    'apikey'      => env('OCR_API_KEY', 'helloworld'), // using env if available
+                    'base64Image' => 'data:image/jpeg;base64,' . $base64,
+                    'scale'       => 'true'
+                ]);
+
+                $result        = $response->json();
+                $extractedText = $result['ParsedResults'][0]['ParsedText'] ?? '';
+
+            } catch (\Exception $apiErr) {
+                Log::error('Cloud OCR Failed: ' . $apiErr->getMessage());
+            }
         }
 
-        // 3. ⭐ Final Title Update & Database Logging
+        $detectedTool = $this->detectToolFromText($extractedText . ' ' . $windowTitle);
+        $shouldAlert  = false;
+
         if ($detectedTool) {
-            $finalTitle = $triggerLabel . ' - ' . $detectedTool;
+
+            $finalTitle = $triggerLabel . ' - ⚠️ DETECTED: ' . $detectedTool;
+
             $screenshot->update(['window_title' => $finalTitle]);
-            
-            // ⭐ HIGH-LEVEL: Auto-Trigger next screenshot if restricted tool is found
-            if (in_array($detectedTool, ['FACEBOOK', 'YOUTUBE', 'NETFLIX', 'TIKTOK'])) {
+
+            $restricted = ['FACEBOOK', 'YOUTUBE', 'NETFLIX', 'TIKTOK', 'INSTAGRAM', 'WHATSAPP', 'SNAPCHAT'];
+            $shouldAlert = true;
+
+            if (in_array($detectedTool, $restricted)) {
+
                 User::where('id', $userId)->update(['screenshot_trigger' => 1]);
-                Log::warning("Security Alert: Employee {$userId} restricted tool detected: {$detectedTool}");
+
+                Log::warning("Restricted Tool Detected: {$detectedTool} by User {$userId}");
+
+                event(new \App\Events\ScreenAlert(
+                    Auth::user()->name,
+                    $detectedTool
+                ));
             }
-            
+
             $this->logAiUsage($userId, $detectedTool, $finalTitle, $this->timezone, 30);
+
         } else {
-             // Agar OCR ko kuch na milay
-             $baseTitle = (str_contains(strtolower($windowTitle), 'screen') || $windowTitle === 'Active Node') ? 'Clean Screen' : $windowTitle;
-             $screenshot->update(['window_title' => $triggerLabel . ' - ' . $baseTitle]);
+
+            $lowerSearch = strtolower($windowTitle . ' ' . $extractedText);
+
+            if (
+                str_contains($lowerSearch, 'visual studio') ||
+                str_contains($lowerSearch, 'vscode') ||
+                str_contains($lowerSearch, 'code.exe')
+            ) {
+                $baseTitle = 'Clean Work (VS Code)';
+            } else {
+                $baseTitle = (
+                    str_contains(strtolower($windowTitle), 'screen') ||
+                    $windowTitle === 'Active Node'
+                )
+                    ? 'Clean Screen'
+                    : $windowTitle;
+            }
+
+            $screenshot->update(['window_title' => $triggerLabel . ' - 🟢 ' . $baseTitle]);
         }
 
-        return response()->json(['success' => true]);
+        return response()->json([
+            'success' => true,
+            'alert'   => $shouldAlert,
+            'tool'    => $detectedTool
+        ]);
     }
 
     // ─────────────────────────────────────────────────────────────
-    // REPORT ACTIVITY (Stealth AI Scan)
+    // REPORT AI USAGE
     // ─────────────────────────────────────────────────────────────
     public function reportAiUsage(Request $request)
     {
-        $userId      = Auth::id();
-        $windowTitle = $request->window_title ?? '';
-
+        $userId       = Auth::id();
+        $windowTitle  = $request->window_title ?? '';
         $detectedTool = $this->detectToolFromText($windowTitle);
 
         if ($detectedTool) {
-            $duration = (int)($request->duration ?? 30);
+            $duration = (int) ($request->duration ?? 30);
             $this->logAiUsage($userId, $detectedTool, $windowTitle, $this->timezone, $duration);
         }
 
@@ -214,13 +287,12 @@ class DashboardController extends Controller
     }
 
     // ─────────────────────────────────────────────────────────────
-    // REPORT IDLE (Inactivity detected on frontend)
+    // ⭐ REPORT IDLE 
     // ─────────────────────────────────────────────────────────────
     public function reportIdle(Request $request)
     {
-        $userId   = Auth::id();
-        $today    = Carbon::today($this->timezone);
-        $now      = Carbon::now($this->timezone);
+        $userId = Auth::id();
+        $today  = Carbon::today($this->timezone);
 
         $att = Attendance::where('user_id', $userId)
             ->whereDate('date', $today)
@@ -229,8 +301,8 @@ class DashboardController extends Controller
 
         if ($att) {
             $att->update([
-                'work_time'  => (int)($request->seconds ?? $att->work_time),
-                'updated_at' => $now, // ⭐ Timezone Fix applied
+                'work_time'  => (int) ($request->seconds ?? $att->work_time),
+                'updated_at' => Carbon::now($this->timezone)
             ]);
         }
 
@@ -240,201 +312,288 @@ class DashboardController extends Controller
     }
 
     // ─────────────────────────────────────────────────────────────
-    // STOP SESSION (Conclude Shift)
+    // ⭐ STOP SESSION (FIXED: UNLIMITED REPORTS PER DAY)
     // ─────────────────────────────────────────────────────────────
     public function stopSession(Request $request)
     {
-        $userId   = Auth::id();
-        $now      = Carbon::now($this->timezone);
-        $today    = Carbon::today($this->timezone);
+        $userId = Auth::id();
+        $now    = Carbon::now($this->timezone);
+        $today  = Carbon::today($this->timezone);
 
+        // Get the latest attendance of today, whether checked out or not
         $att = Attendance::where('user_id', $userId)
             ->whereDate('date', $today)
-            ->whereNull('check_out')
+            ->latest()
             ->first();
 
-        if ($att) {
-            $workSeconds = (int)($request->seconds ?? $att->work_time);
+        $workSeconds = (int) ($request->seconds ?? ($att ? $att->work_time : 0));
+
+        // Update attendance time
+        if ($att && is_null($att->check_out)) {
             $att->update([
                 'check_out'  => $now->format('H:i:s'),
                 'work_time'  => $workSeconds,
-                'updated_at' => $now, // ⭐ Timezone Fix applied
+                'updated_at' => $now
             ]);
-
-            $hour = $now->hour;
-            if      ($hour >= 5  && $hour < 12) $shiftName = 'Morning';
-            elseif  ($hour >= 12 && $hour < 17) $shiftName = 'Afternoon';
-            elseif  ($hour >= 17 && $hour < 21) $shiftName = 'Evening';
-            else                                $shiftName = 'Night';
-
-            $aiSeconds  = AiUsageLog::where('user_id', $userId)
-                ->whereDate('log_date', $today)
-                ->where('ai_tool', '!=', 'IDLE')
-                ->sum('duration_seconds') ?: 0;
-            $aiPercent  = $workSeconds > 0 ? min(round(($aiSeconds / $workSeconds) * 100, 1), 100) : 0;
-            $pulseCount = Screenshot::where('user_id', $userId)->whereDate('created_at', $today)->count();
-
-            ShiftReport::create([
-                'user_id'       => $userId,
-                'shift_name'    => $shiftName,
-                'total_seconds' => $workSeconds,
-                'ai_percentage' => $aiPercent,
-                'pulse_count'   => $pulseCount,
-                'task_summary'  => $request->summary ?? 'Shift concluded.',
-                'report_date'   => $today->toDateString(),
-                'created_at'    => $now,
-                'updated_at'    => $now,
+        } elseif ($att) {
+            $att->update([
+                'work_time'  => max($att->work_time, $workSeconds),
+                'updated_at' => $now
             ]);
         }
+
+        // ⭐ ALWAYS CREATE SHIFT REPORT (No condition required)
+        $hour = $now->hour;
+        if ($hour >= 5 && $hour < 12) {
+            $shiftName = 'Morning';
+        } elseif ($hour >= 12 && $hour < 17) {
+            $shiftName = 'Afternoon';
+        } elseif ($hour >= 17 && $hour < 21) {
+            $shiftName = 'Evening';
+        } else {
+            $shiftName = 'Night';
+        }
+
+        $aiSeconds = AiUsageLog::where('user_id', $userId)
+            ->whereDate('log_date', $today)
+            ->where('ai_tool', '!=', 'IDLE')
+            ->sum('duration_seconds') ?: 0;
+
+        $aiPercent = $workSeconds > 0
+            ? min(round(($aiSeconds / $workSeconds) * 100, 1), 100)
+            : 0;
+
+        $pulseCount = Screenshot::where('user_id', $userId)
+            ->whereDate('created_at', $today)
+            ->count();
+
+        ShiftReport::create([
+            'user_id'       => $userId,
+            'shift_name'    => $shiftName,
+            'total_seconds' => $workSeconds,
+            'ai_percentage' => $aiPercent,
+            'pulse_count'   => $pulseCount,
+            'task_summary'  => $request->summary ?? 'Shift concluded.',
+            'report_date'   => $today->toDateString(),
+            'created_at'    => $now,
+            'updated_at'    => $now,
+        ]);
 
         return response()->json(['success' => true]);
     }
 
     // ─────────────────────────────────────────────────────────────
-    // TASK ACTIONS (⭐ BUG FIXED HERE)
+    // FORWARD TASK
     // ─────────────────────────────────────────────────────────────
     public function forwardTask(Request $request, $id)
     {
-        $task = Task::where('id', $id)->where('user_id', Auth::id())->firstOrFail();
-        
-        // ⭐ FIX: Updated to match frontend variable names
+        $task = Task::where('id', $id)
+            ->where('user_id', Auth::id())
+            ->firstOrFail();
+
         $request->validate([
             'forwarded_to'   => 'required|exists:users,id',
             'forward_reason' => 'required|string'
         ]);
 
         DB::transaction(function () use ($task, $request) {
+
             TaskForward::create([
                 'task_id'      => $task->id,
                 'from_user_id' => Auth::id(),
-                'to_user_id'   => $request->forwarded_to, // ⭐ FIXED
-                'note'         => $request->forward_reason, // ⭐ FIXED
+                'to_user_id'   => $request->forwarded_to,
+                'note'         => $request->forward_reason,
             ]);
-            
-            // ⭐ Re-assign task to the selected employee
-            $task->update(['user_id' => $request->forwarded_to]); 
+
+            $task->update(['user_id' => $request->forwarded_to]);
         });
 
-        // ⭐ FIX: Return back to page instead of blank JSON
-        return back()->with('success', 'Task forwarded successfully to your colleague!');
+        return back()->with('success', 'Task forwarded successfully!');
     }
 
+    // ─────────────────────────────────────────────────────────────
+    // ⭐ UPDATE TASK STATUS 
+    // ─────────────────────────────────────────────────────────────
     public function updateStatus(Request $request, $id)
     {
-        $task = Task::where('id', $id)->where('user_id', Auth::id())->firstOrFail();
-        $task->update([
-            'status'                => $request->status ?? $task->status,
-            'completion_percentage' => $request->completion_percentage ?? $task->completion_percentage,
+        $request->validate([
+            'update_note'           => 'required|string|max:1000',
+            'completion_percentage' => 'nullable|integer|min:0|max:100',
+            'completion_stage'      => 'nullable|in:progress,halfway,completed',
+            'blockers'              => 'nullable|string|max:500',
         ]);
+
+        $task = Task::where('id', $id)
+            ->where('user_id', Auth::id())
+            ->firstOrFail();
+
+        $today = Carbon::today($this->timezone);
+
+        $task->days_worked = (int) ($task->days_worked ?? 0) + 1;
+
+        if ($task->due_date && $today->gt(Carbon::parse($task->due_date))) {
+            $task->overdue_days = (int) $today->diffInDays(Carbon::parse($task->due_date));
+        } else {
+            $task->overdue_days = 0;
+        }
+
+        $task->completion_stage = $request->completion_stage ?? 'progress';
+
+        if ($request->completion_stage === 'completed') {
+            $task->status                = 'completed';
+            $task->completion_percentage = 100;
+        } else {
+            $task->status = 'in_progress';
+            $task->completion_percentage = $request->completion_percentage ?? $task->completion_percentage;
+        }
+
+        $task->save();
+
+        EmployeeFeedback::create([
+            'user_id'               => Auth::id(),
+            'task_id'               => $task->id,
+            'update_note'           => $request->update_note,
+            'blockers'              => $request->blockers ?? null,
+            'completion_percentage' => (int) $task->completion_percentage,
+        ]);
+
         return response()->json(['success' => true]);
     }
 
     // ─────────────────────────────────────────────────────────────
-    // ⭐ PRIVATE HELPERS (PRIORITY DETECTION & TIMEZONES)
+    // ⭐ DETECT TOOL
     // ─────────────────────────────────────────────────────────────
-
     private function detectToolFromText(string $title): ?string
     {
-        // ⭐ PRIORITY 1: Social Media ko Pehle Check Karein
-        $socialMediaMap = [
-            'youtube'    => 'YOUTUBE',
-            'facebook'   => 'FACEBOOK',
-            'fb.com'     => 'FACEBOOK',
-            'netflix'    => 'NETFLIX',
-            'tiktok'     => 'TIKTOK',
-            'instagram'  => 'INSTAGRAM',
-            'whatsapp'   => 'WHATSAPP',
-            'twitter'    => 'TWITTER',
-            'x.com'      => 'TWITTER'
-        ];
-
-        // ⭐ PRIORITY 2: AI Tools ko Baad Mein Check Karein
-        $aiToolMap = [
-            'chatgpt'    => 'CHATGPT',
-            'openai'     => 'CHATGPT',
-            'claude'     => 'CLAUDE',
-            'anthropic'  => 'CLAUDE',
-            'deepseek'   => 'DEEPSEEK',
-            'gemini'     => 'GEMINI',
-            'bard'       => 'GEMINI',
-            'copilot'    => 'COPILOT',
-            'perplexity' => 'PERPLEXITY',
-            'grok'       => 'GROK',
-            'midjourney' => 'MIDJOURNEY'
-        ];
-
         $lower = strtolower($title);
 
-        // Pehle YouTube/Facebook Check Hoga
-        foreach ($socialMediaMap as $keyword => $toolName) {
-            if (str_contains($lower, $keyword)) return $toolName;
+        $aiToolMap = [
+            'gemini.google' => 'GEMINI',
+            'chatgpt.com'   => 'CHATGPT',
+            'claude.ai'     => 'CLAUDE',
+            'deepseek'      => 'DEEPSEEK',
+            'gemini'        => 'GEMINI',
+            'chatgpt'       => 'CHATGPT',
+            'openai'        => 'CHATGPT',
+            'copilot'       => 'COPILOT',
+            'perplexity'    => 'PERPLEXITY',
+            'grok'          => 'GROK',
+            'midjourney'    => 'MIDJOURNEY',
+        ];
+
+        $socialMediaMap = [
+            'facebook.com'  => 'FACEBOOK',
+            'youtube.com'   => 'YOUTUBE',
+            'instagram.com' => 'INSTAGRAM',
+            'whatsapp'      => 'WHATSAPP',
+            'tiktok.com'    => 'TIKTOK',
+            'netflix.com'   => 'NETFLIX',
+            'twitter.com'   => 'TWITTER',
+            'x.com'         => 'TWITTER',
+            'snapchat'      => 'SNAPCHAT',
+            'facebook'      => 'FACEBOOK',
+            'youtube'       => 'YOUTUBE',
+            'tiktok'        => 'TIKTOK',
+        ];
+
+        foreach ($aiToolMap as $keyword => $toolName) {
+            if (str_contains($lower, $keyword)) {
+                return $toolName;
+            }
         }
 
-        // Agar Social Media nahi mila, tab Gemini waghera Check Hoga
-        foreach ($aiToolMap as $keyword => $toolName) {
-            if (str_contains($lower, $keyword)) return $toolName;
+        foreach ($socialMediaMap as $keyword => $toolName) {
+            if (str_contains($lower, $keyword)) {
+                return $toolName;
+            }
         }
 
         return null;
     }
 
-    private function logAiUsage(int $userId, string $tool, string $title, string $timezone, int $duration = 30): void
-    {
+    // ─────────────────────────────────────────────────────────────
+    // ⭐ LOG AI USAGE
+    // ─────────────────────────────────────────────────────────────
+    private function logAiUsage(
+        int $userId,
+        string $tool,
+        string $title,
+        string $timezone,
+        int $duration = 30
+    ): void {
+
         $today = Carbon::today($timezone)->toDateString();
-        $now   = Carbon::now($timezone); // ⭐ FIXED: Ab PK Time use hoga
+        $now   = Carbon::now($timezone);
 
-        $exists = DB::table('ai_usage_logs')
-            ->where(['user_id' => $userId, 'ai_tool' => $tool, 'log_date' => $today])
-            ->exists();
+        $existing = DB::table('ai_usage_logs')
+            ->where([
+                'user_id'  => $userId,
+                'ai_tool'  => $tool,
+                'log_date' => $today
+            ])
+            ->first();
 
-        if ($exists) {
+        if ($existing) {
             DB::table('ai_usage_logs')
-                ->where(['user_id' => $userId, 'ai_tool' => $tool, 'log_date' => $today])
+                ->where('id', $existing->id)
                 ->update([
                     'activity_title'   => $title,
                     'duration_seconds' => DB::raw("duration_seconds + {$duration}"),
-                    'updated_at'       => $now, // ⭐ FIXED
+                    'updated_at'       => $now,
                 ]);
         } else {
-            DB::table('ai_usage_logs')->insert([
-                'user_id'          => $userId,
-                'ai_tool'          => $tool,
-                'log_date'         => $today,
-                'activity_title'   => $title,
-                'duration_seconds' => $duration,
-                'created_at'       => $now, // ⭐ FIXED
-                'updated_at'       => $now, // ⭐ FIXED
-            ]);
+            DB::table('ai_usage_logs')
+                ->insert([
+                    'user_id'          => $userId,
+                    'ai_tool'          => $tool,
+                    'log_date'         => $today,
+                    'activity_title'   => $title,
+                    'duration_seconds' => $duration,
+                    'created_at'       => $now,
+                    'updated_at'       => $now,
+                ]);
         }
     }
 
-    private function logIdleUsage(int $userId, Carbon $today, string $timezone): void
-    {
+    // ─────────────────────────────────────────────────────────────
+    // ⭐ LOG IDLE
+    // ─────────────────────────────────────────────────────────────
+    private function logIdleUsage(
+        int $userId,
+        Carbon $today,
+        string $timezone
+    ): void {
+
+        $now        = Carbon::now($timezone);
         $dateString = $today->toDateString();
-        $now = Carbon::now($timezone); // ⭐ FIXED: Ab PK Time use hoga
 
-        $exists = DB::table('ai_usage_logs')
-            ->where(['user_id' => $userId, 'ai_tool' => 'IDLE', 'log_date' => $dateString])
-            ->exists();
+        $existing = DB::table('ai_usage_logs')
+            ->where([
+                'user_id'  => $userId,
+                'ai_tool'  => 'IDLE',
+                'log_date' => $dateString
+            ])
+            ->first();
 
-        if ($exists) {
+        if ($existing) {
             DB::table('ai_usage_logs')
-                ->where(['user_id' => $userId, 'ai_tool' => 'IDLE', 'log_date' => $dateString])
+                ->where('id', $existing->id)
                 ->update([
                     'activity_title'   => 'Inactivity detected',
                     'duration_seconds' => DB::raw('duration_seconds + 1200'),
-                    'updated_at'       => $now, // ⭐ FIXED
+                    'updated_at'       => $now,
                 ]);
         } else {
-            DB::table('ai_usage_logs')->insert([
-                'user_id'          => $userId,
-                'ai_tool'          => 'IDLE',
-                'log_date'         => $dateString,
-                'activity_title'   => 'Inactivity detected',
-                'duration_seconds' => 1200,
-                'created_at'       => $now, // ⭐ FIXED
-                'updated_at'       => $now, // ⭐ FIXED
-            ]);
+            DB::table('ai_usage_logs')
+                ->insert([
+                    'user_id'          => $userId,
+                    'ai_tool'          => 'IDLE',
+                    'log_date'         => $dateString,
+                    'activity_title'   => 'Inactivity detected',
+                    'duration_seconds' => 1200,
+                    'created_at'       => $now,
+                    'updated_at'       => $now,
+                ]);
         }
     }
 }

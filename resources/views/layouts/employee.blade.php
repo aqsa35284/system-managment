@@ -7,6 +7,7 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <link rel="icon" type="image/jpeg" href="{{ asset('storage/logo/Favicon.png') }}">
 
     {{-- ⭐ Real-time Identity Injector for Reverb --}}
     <script>
@@ -16,41 +17,48 @@
         window.currentDeptId = null;
     </script>
 
-    @vite(['resources/css/app.css', 'resources/js/app.js'])
+    <link rel="stylesheet" href="{{ asset('build/assets/app-DoURTLbS.css') }}">
+    <script src="{{ asset('build/assets/app-BTIP2hA6.js') }}" defer></script>
 
     <style>
         body { 
             font-family: 'Inter', sans-serif;
-            background: linear-gradient(135deg, #0f0c29, #302b63, #24243e);
+            background-color: #010717;
             min-height: 100vh;
         }
-        
+
         .sidebar-link.active {
-            background: linear-gradient(90deg, rgba(124, 58, 237, 0.3), rgba(79, 70, 229, 0.2));
-            color: white !important;
-            box-shadow: 0 4px 20px rgba(124, 58, 237, 0.25);
-            border-left: 3px solid #7c3aed;
+            background: linear-gradient(90deg, rgba(210, 166, 61, 0.2), rgba(210, 166, 61, 0.08));
+            color: #eaeef2 !important;
+            box-shadow: 0 4px 20px rgba(210, 166, 61, 0.15);
+            border-left: 3px solid #d2a63d;
         }
-        
-        .sidebar-link.active i { color: #a78bfa !important; }
-        
+
+        .sidebar-link.active i { color: #d2a63d !important; }
+
         .glass-effect {
-            background: rgba(255, 255, 255, 0.05);
+            background: rgba(210, 166, 61, 0.05);
             backdrop-filter: blur(10px);
-            border: 1px solid rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(210, 166, 61, 0.12);
         }
-        
+
         .sidebar-gradient {
-            background: linear-gradient(180deg, rgba(30, 27, 75, 0.9), rgba(15, 12, 41, 0.9));
+            background: linear-gradient(180deg, rgba(3, 10, 28, 0.97), rgba(1, 7, 23, 0.97));
             backdrop-filter: blur(15px);
         }
-        
+
         .custom-sidebar::-webkit-scrollbar { width: 4px; }
-        .custom-sidebar::-webkit-scrollbar-thumb { background: rgba(124, 58, 237, 0.3); border-radius: 2px; }
-        
+        .custom-sidebar::-webkit-scrollbar-thumb { background: rgba(210, 166, 61, 0.3); border-radius: 2px; }
+
         .bg-animation { position: fixed; width: 100%; height: 100%; top: 0; left: 0; z-index: -1; overflow: hidden; }
-        .bg-animation span { position: absolute; display: block; width: 20px; height: 20px; background: rgba(124, 58, 237, 0.2); animation: move 25s linear infinite; bottom: -150px; }
-        
+        .bg-animation span {
+            position: absolute; display: block;
+            width: 20px; height: 20px;
+            background: rgba(210, 166, 61, 0.08);
+            animation: move 25s linear infinite;
+            bottom: -150px;
+        }
+
         @keyframes move {
             0% { transform: translateY(0) rotate(0deg); opacity: 1; border-radius: 0; }
             100% { transform: translateY(-1000px) rotate(720deg); opacity: 0; border-radius: 50%; }
@@ -69,81 +77,116 @@
         .toast-leave { animation: toast-slide-out 0.4s ease-in forwards; }
     </style>
 </head>
-<body class="text-white overflow-x-hidden">
+<body class="overflow-x-hidden" style="color: #eaeef2;">
     <div class="bg-animation">
-        <span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span>
+        <span></span><span></span><span></span><span></span><span></span>
+        <span></span><span></span><span></span><span></span><span></span>
     </div>
 
     {{-- ⭐ Global Toast Container (Messages & Tasks Alerts) --}}
     <div id="toast-container" class="fixed bottom-6 right-6 z-[9999] flex flex-col gap-3 pointer-events-none"></div>
 
     <div class="flex min-h-screen relative z-10">
-        <aside id="sidebar" class="w-72 sidebar-gradient border-r border-white/10 hidden lg:flex flex-col fixed h-full z-50 transition-all duration-300 custom-sidebar">
+
+        {{-- SIDEBAR --}}
+        <aside id="sidebar" class="w-72 sidebar-gradient hidden lg:flex flex-col fixed h-full z-50 transition-all duration-300 custom-sidebar" style="border-right: 1px solid rgba(210, 166, 61, 0.12);">
+
             <div class="p-8">
                 <div class="flex items-center gap-3">
-                    <div class="w-10 h-10 bg-gradient-to-r from-purple-500 to-indigo-600 rounded-xl flex items-center justify-center shadow-lg">
-                        <i class="fas fa-rocket text-white"></i>
+                    <div class="w-10 h-10 rounded-xl flex items-center justify-center shadow-lg" style="background: linear-gradient(135deg, #d2a63d, #a07828);">
+                         <img src="{{ asset('storage/logo/hori.svg') }}" alt="Logo" class="w-full h-full object-contain p-1" onerror="this.style.display='none'; this.nextElementSibling.style.display='block';">
+                    
                     </div>
                     <div>
-                        <h1 class="text-2xl font-bold text-white tracking-tight uppercase">Fleet <span class="bg-gradient-to-r from-purple-400 to-indigo-400 bg-clip-text text-transparent">Member</span></h1>
-                        <p class="text-[10px] text-cyan-400 uppercase tracking-widest mt-0.5 animate-pulse">Operational Unit</p>
+                        <h1 class="text-2xl font-bold uppercase tracking-tight" style="color: #eaeef2;">Employee <span style="color: #d2a63d;">Member</span></h1>
+                        <p class="text-[10px] uppercase tracking-widest mt-0.5 animate-pulse" style="color: #d2a63d;">Operational Unit</p>
                     </div>
                 </div>
             </div>
 
             <nav class="flex-1 px-6 space-y-2 overflow-y-auto custom-sidebar">
-                <a href="{{ route('employee.dashboard') }}" class="sidebar-link flex items-center gap-4 p-4 rounded-xl font-medium text-sm transition-all {{ request()->routeIs('employee.dashboard') ? 'active' : 'text-white/70 hover:bg-white/5' }}">
-                    <i class="fas fa-terminal w-5 text-purple-400"></i> My Terminal
+                <a href="{{ route('employee.dashboard') }}"
+                   class="sidebar-link flex items-center gap-4 p-4 rounded-xl font-medium text-sm transition-all {{ request()->routeIs('employee.dashboard') ? 'active' : '' }}"
+                   style="{{ !request()->routeIs('employee.dashboard') ? 'color: rgba(234,238,242,0.6);' : '' }}"
+                   onmouseover="{{ !request()->routeIs('employee.dashboard') ? 'this.style.background=\"rgba(210,166,61,0.06)\"' : '' }}"
+                   onmouseout="{{ !request()->routeIs('employee.dashboard') ? 'this.style.background=\"transparent\"' : '' }}">
+                    <i class="fas fa-terminal w-5" style="color: #d2a63d;"></i> Employee Dashboard
                 </a>
 
-                <a href="#" class="sidebar-link flex items-center gap-4 p-4 rounded-xl font-medium text-sm text-white/70 hover:bg-white/5 transition-all">
-                    <i class="fas fa-rocket text-amber-400 w-5"></i> Project Fleet
+                {{-- ⭐ YAHAN INDEX KIYA HAI --}}
+                <a href="{{ route('employee.projects.index') }}"
+                   class="sidebar-link flex items-center gap-4 p-4 rounded-xl font-medium text-sm transition-all {{ request()->routeIs('employee.projects.*') ? 'active' : '' }}"
+                   style="{{ !request()->routeIs('employee.projects.*') ? 'color: rgba(234,238,242,0.6);' : '' }}"
+                   onmouseover="{{ !request()->routeIs('employee.projects.*') ? 'this.style.background=\"rgba(210,166,61,0.06)\"' : '' }}"
+                   onmouseout="{{ !request()->routeIs('employee.projects.*') ? 'this.style.background=\"transparent\"' : '' }}">
+                    <i class="fas fa-rocket w-5" style="color: #d2a63d;"></i> Project
                 </a>
 
-                <a href="#" class="sidebar-link flex items-center gap-4 p-4 rounded-xl font-medium text-sm text-white/70 hover:bg-white/5 transition-all">
-                    <i class="fas fa-chart-pie text-emerald-400 w-5"></i> My Efficiency
+                {{-- ⭐ YAHAN BHI INDEX KIYA HAI --}}
+                <a href="{{ route('employee.tasks.index') }}"
+                   class="sidebar-link flex items-center gap-4 p-4 rounded-xl font-medium text-sm transition-all {{ request()->routeIs('employee.tasks.*') ? 'active' : '' }}"
+                   style="{{ !request()->routeIs('employee.tasks.*') ? 'color: rgba(234,238,242,0.6);' : '' }}"
+                   onmouseover="{{ !request()->routeIs('employee.tasks.*') ? 'this.style.background=\"rgba(210,166,61,0.06)\"' : '' }}"
+                   onmouseout="{{ !request()->routeIs('employee.tasks.*') ? 'this.style.background=\"transparent\"' : '' }}">
+                    <i class="fas fa-chart-pie w-5" style="color: #d2a63d;"></i> MyTask
                 </a>
 
                 {{-- ⭐ Updated Secure Comms with Ping Badge --}}
-                <a href="{{ route('chat.index') }}" class="sidebar-link group flex items-center justify-between p-4 rounded-xl font-medium text-sm transition-all {{ request()->routeIs('chat.*') ? 'active' : 'text-white/70 hover:bg-white/5' }}">
+                <a href="{{ route('chat.index') }}"
+                   class="sidebar-link group flex items-center justify-between p-4 rounded-xl font-medium text-sm transition-all {{ request()->routeIs('chat.*') ? 'active' : '' }}"
+                   style="{{ !request()->routeIs('chat.*') ? 'color: rgba(234,238,242,0.6);' : '' }}"
+                   onmouseover="{{ !request()->routeIs('chat.*') ? 'this.style.background=\"rgba(210,166,61,0.06)\"' : '' }}"
+                   onmouseout="{{ !request()->routeIs('chat.*') ? 'this.style.background=\"transparent\"' : '' }}">
                     <div class="flex items-center gap-4">
                         <div class="relative">
-                            <i class="fas fa-comment-dots w-5 text-cyan-400 group-hover:scale-110 transition-transform"></i> 
-                            <span id="employee-chat-ping" class="hidden absolute -top-1 -right-1 w-2 h-2 bg-rose-500 rounded-full animate-ping"></span>
+                            <i class="fas fa-comment-dots w-5 group-hover:scale-110 transition-transform" style="color: #d2a63d;"></i>
+                            <span id="employee-chat-ping" class="hidden absolute -top-1 -right-1 w-2 h-2 rounded-full animate-ping" style="background-color: #ef4444;"></span>
                         </div>
-                        Secure Comms
+                        Whatsapp
                     </div>
-                    <span id="employee-chat-badge" class="hidden min-w-[22px] h-[22px] bg-gradient-to-r from-rose-500 to-rose-600 text-white text-[10px] font-black rounded-full flex items-center justify-center shadow-[0_0_15px_rgba(225,29,72,0.6)]">0</span>
+                    <span id="employee-chat-badge" class="hidden min-w-[22px] h-[22px] text-white text-[10px] font-black rounded-full flex items-center justify-center" style="background: linear-gradient(135deg, #ef4444, #dc2626); box-shadow: 0 0 15px rgba(239,68,68,0.5);">0</span>
                 </a>
 
-                <a href="{{ route('employee.attendance.index') }}" class="sidebar-link flex items-center gap-4 p-4 rounded-xl font-medium text-sm transition-all {{ request()->routeIs('employee.attendance.*') ? 'active' : 'text-white/70 hover:bg-white/5' }}">
-                    <i class="fas fa-clipboard-list w-5 text-indigo-400"></i> My Fleet Logs
+                <a href="{{ route('employee.attendance.index') }}"
+                   class="sidebar-link flex items-center gap-4 p-4 rounded-xl font-medium text-sm transition-all {{ request()->routeIs('employee.attendance.*') ? 'active' : '' }}"
+                   style="{{ !request()->routeIs('employee.attendance.*') ? 'color: rgba(234,238,242,0.6);' : '' }}"
+                   onmouseover="{{ !request()->routeIs('employee.attendance.*') ? 'this.style.background=\"rgba(210,166,61,0.06)\"' : '' }}"
+                   onmouseout="{{ !request()->routeIs('employee.attendance.*') ? 'this.style.background=\"transparent\"' : '' }}">
+                    <i class="fas fa-clipboard-list w-5" style="color: #d2a63d;"></i> Attendances
                 </a>
-                
-                <div class="pt-4 mt-4 border-t border-white/10">
-                    <a href="#" class="sidebar-link flex items-center gap-4 p-4 rounded-xl font-medium text-sm text-white/70 hover:bg-white/5 transition-all">
-                        <i class="fas fa-cog text-gray-400 w-5"></i> Settings
+
+                <div class="pt-4 mt-4" style="border-top: 1px solid rgba(210, 166, 61, 0.12);">
+                    <a href="#"
+                       class="sidebar-link flex items-center gap-4 p-4 rounded-xl font-medium text-sm transition-all"
+                       style="color: rgba(234,238,242,0.5);"
+                       onmouseover="this.style.background='rgba(210,166,61,0.06)'"
+                       onmouseout="this.style.background='transparent'">
+                        <i class="fas fa-cog w-5" style="color: rgba(210,166,61,0.5);"></i> Settings
                     </a>
                 </div>
             </nav>
 
-            <div class="p-6 border-t border-white/10">
+            <div class="p-6" style="border-top: 1px solid rgba(210, 166, 61, 0.12);">
                 <div class="flex items-center gap-3 mb-6 p-3 glass-effect rounded-xl relative overflow-hidden group">
-                    <div class="absolute inset-0 bg-purple-500/10 translate-y-full group-hover:translate-y-0 transition-transform duration-300"></div>
-                    <div class="w-12 h-12 rounded-xl bg-gradient-to-r from-purple-500 to-indigo-600 flex items-center justify-center text-white font-bold shadow-lg z-10">
+                    <div class="absolute inset-0 translate-y-full group-hover:translate-y-0 transition-transform duration-300" style="background: rgba(210,166,61,0.06);"></div>
+                    <div class="w-12 h-12 rounded-xl flex items-center justify-center text-sm font-bold shadow-lg z-10" style="background: linear-gradient(135deg, #d2a63d, #a07828); color: #010717;">
                         {{ auth()->check() ? substr(auth()->user()->name, 0, 1) : 'U' }}
                     </div>
                     <div class="flex-1 overflow-hidden z-10">
-                        <p class="text-sm font-bold text-white truncate">{{ auth()->user()->name ?? 'Employee' }}</p>
-                        <p class="text-[10px] text-emerald-400 uppercase tracking-widest flex items-center gap-1">
-                            <span class="w-1.5 h-1.5 bg-emerald-400 rounded-full animate-pulse"></span> Active
+                        <p class="text-sm font-bold truncate" style="color: #eaeef2;">{{ auth()->user()->name ?? 'Employee' }}</p>
+                        <p class="text-[10px] uppercase tracking-widest flex items-center gap-1" style="color: #1dd182;">
+                            <span class="w-1.5 h-1.5 rounded-full animate-pulse" style="background-color: #1dd182;"></span> Active
                         </p>
                     </div>
                 </div>
 
                 <form action="{{ route('logout') }}" method="POST">
                     @csrf
-                    <button type="submit" class="w-full flex items-center justify-center gap-2 p-3 glass-effect text-rose-400 rounded-xl font-bold text-[11px] uppercase tracking-[0.2em] hover:bg-rose-500 hover:text-white border border-transparent hover:border-rose-400 transition-all group">
+                    <button type="submit"
+                            class="w-full flex items-center justify-center gap-2 p-3 glass-effect rounded-xl font-bold text-[11px] uppercase tracking-[0.2em] transition-all group"
+                            style="color: #ef4444; border: 1px solid rgba(239,68,68,0.2);"
+                            onmouseover="this.style.backgroundColor='#ef4444'; this.style.color='#fff'; this.style.borderColor='#ef4444';"
+                            onmouseout="this.style.backgroundColor='transparent'; this.style.color='#ef4444'; this.style.borderColor='rgba(239,68,68,0.2)';">
                         <i class="fas fa-power-off group-hover:animate-pulse"></i> Sign Out
                     </button>
                 </form>
@@ -151,18 +194,23 @@
         </aside>
 
         <main class="flex-1 lg:ml-72 transition-all">
-            <header class="lg:hidden glass-effect p-4 flex justify-between items-center sticky top-0 z-40">
+            {{-- MOBILE HEADER --}}
+            <header class="lg:hidden p-4 flex justify-between items-center sticky top-0 z-40 glass-effect">
                 <div class="flex items-center gap-3">
-                    <div class="w-10 h-10 bg-gradient-to-r from-purple-500 to-indigo-600 rounded-xl flex items-center justify-center shadow-lg"><i class="fas fa-rocket text-white"></i></div>
-                    <h1 class="font-bold text-white uppercase tracking-tight">Fleet <span class="text-purple-400">Member</span></h1>
+                    <div class="w-10 h-10 rounded-xl flex items-center justify-center shadow-lg" style="background: linear-gradient(135deg, #d2a63d, #a07828);">
+                        <i class="fas fa-rocket" style="color: #010717;"></i>
+                    </div>
+                    <h1 class="font-bold uppercase tracking-tight" style="color: #eaeef2;">Attendance <span style="color: #d2a63d;">Member</span></h1>
                 </div>
                 <div class="flex items-center gap-4">
                     {{-- ⭐ Mobile Notification Bell --}}
-                    <button id="mobile-alert-btn" class="relative text-slate-300">
+                    <button id="mobile-alert-btn" class="relative" style="color: #8a9bb0;">
                         <i class="fas fa-bell text-xl"></i>
-                        <span id="mobile-chat-badge" class="hidden absolute -top-1 -right-1 w-3 h-3 bg-rose-500 border-2 border-[#0F172A] rounded-full"></span>
+                        <span id="mobile-chat-badge" class="hidden absolute -top-1 -right-1 w-3 h-3 rounded-full border-2" style="background-color: #ef4444; border-color: #010717;"></span>
                     </button>
-                    <button onclick="toggleSidebar()" class="text-white/80 text-xl p-2 rounded-xl glass-effect"><i class="fas fa-bars"></i></button>
+                    <button onclick="toggleSidebar()" class="text-xl p-2 rounded-xl glass-effect" style="color: #eaeef2;">
+                        <i class="fas fa-bars"></i>
+                    </button>
                 </div>
             </header>
 
@@ -180,36 +228,38 @@
         }
 
         // ⭐ Toast Notification Generator
-        function spawnToast(title, message, icon = 'fa-comment-dots', color = 'cyan') {
+        function spawnToast(title, message, icon = 'fa-comment-dots', color = 'gold') {
             const container = document.getElementById('toast-container');
             if (!container) return;
-            
+
             // Notification Beep Sound
             try {
-                const audio = new Audio('data:audio/wav;base64,UklGRigAAABXQVZFZm10IBIAAAABAAEARKwAAIhYAQACABAAAABkYXRhAgAAAAEA'); 
+                const audio = new Audio('data:audio/wav;base64,UklGRigAAABXQVZFZm10IBIAAAABAAEARKwAAIhYAQACABAAAABkYXRhAgAAAAEA');
                 audio.volume = 0.5; audio.play().catch(()=>{});
             } catch(e){}
 
-            // Dynamic Color Theming for different events
+            // Dynamic Color Theming
             const colors = {
-                cyan: 'bg-cyan-600/20 border-cyan-500/50 text-cyan-400',
-                purple: 'bg-purple-600/20 border-purple-500/50 text-purple-400',
-                rose: 'bg-rose-600/20 border-rose-500/50 text-rose-400',
-                emerald: 'bg-emerald-600/20 border-emerald-500/50 text-emerald-400'
+                gold:    'border-[rgba(210,166,61,0.5)] text-[#d2a63d]',
+                rose:    'border-[rgba(239,68,68,0.5)]  text-[#ef4444]',
+                emerald: 'border-[rgba(29,209,130,0.5)] text-[#1dd182]',
+                purple:  'border-[rgba(210,166,61,0.5)] text-[#d2a63d]',
+                cyan:    'border-[rgba(210,166,61,0.5)] text-[#d2a63d]',
             };
 
             const toast = document.createElement('div');
-            toast.className = `glass-effect border-l-4 rounded-xl p-4 w-80 shadow-[0_10px_30px_rgba(0,0,0,0.5)] pointer-events-auto flex gap-4 items-start toast-enter ${colors[color]}`;
-            
+            toast.className = `border-l-4 rounded-xl p-4 w-80 shadow-[0_10px_30px_rgba(0,0,0,0.5)] pointer-events-auto flex gap-4 items-start toast-enter ${colors[color] ?? colors.gold}`;
+            toast.style.cssText = 'background: rgba(5,16,31,0.96); backdrop-filter: blur(10px); border-top: 1px solid rgba(210,166,61,0.1); border-right: 1px solid rgba(210,166,61,0.1); border-bottom: 1px solid rgba(210,166,61,0.1);';
+
             toast.innerHTML = `
-                <div class="mt-0.5 rounded-full p-2 bg-black/30 shadow-inner">
+                <div class="mt-0.5 rounded-full p-2" style="background: rgba(210,166,61,0.1);">
                     <i class="fas ${icon} text-lg"></i>
                 </div>
                 <div class="flex-1">
-                    <h4 class="text-xs font-black text-white uppercase tracking-widest mb-1">${title}</h4>
-                    <p class="text-[11px] text-slate-300 font-medium leading-relaxed">${message}</p>
+                    <h4 class="text-xs font-black uppercase tracking-widest mb-1" style="color: #eaeef2;">${title}</h4>
+                    <p class="text-[11px] font-medium leading-relaxed" style="color: #8a9bb0;">${message}</p>
                 </div>
-                <button onclick="this.parentElement.remove()" class="text-slate-500 hover:text-white transition-colors">
+                <button onclick="this.parentElement.remove()" style="color: #4a5568;" onmouseover="this.style.color='#eaeef2'" onmouseout="this.style.color='#4a5568'">
                     <i class="fas fa-times"></i>
                 </button>
             `;
@@ -219,7 +269,7 @@
             // Auto-remove after 6 seconds
             setTimeout(() => {
                 toast.classList.replace('toast-enter', 'toast-leave');
-                setTimeout(() => toast.remove(), 400); 
+                setTimeout(() => toast.remove(), 400);
             }, 6000);
         }
 
@@ -233,76 +283,68 @@
             .then(res => res.json())
             .then(data => {
                 const badge = document.getElementById('employee-chat-badge');
-                const ping = document.getElementById('employee-chat-ping');
+                const ping  = document.getElementById('employee-chat-ping');
                 const mobileBadge = document.getElementById('mobile-chat-badge');
-                
+
                 if (data.count > 0) {
-                    // Update Sidebar & Mobile Badges
                     if(badge) { badge.innerText = data.count; badge.classList.remove('hidden'); }
-                    if(ping) ping.classList.remove('hidden');
+                    if(ping)  ping.classList.remove('hidden');
                     if(mobileBadge) mobileBadge.classList.remove('hidden');
 
-                    // If New Message Arrived -> Show Toast Alert
                     if (data.count > lastMessageCount) {
                         spawnToast(
-                            'Admin Transmission', 
-                            `Secure message received from <b class="text-white">${data.sender_name}</b>.`, 
-                            'fa-envelope-open-text', 
-                            'cyan'
+                            'Admin Transmission',
+                            `Secure message received from <b style="color:#eaeef2">${data.sender_name}</b>.`,
+                            'fa-envelope-open-text',
+                            'gold'
                         );
                     }
                     lastMessageCount = data.count;
                 } else {
-                    // Hide Badges if 0
                     if(badge) badge.classList.add('hidden');
-                    if(ping) ping.classList.add('hidden');
+                    if(ping)  ping.classList.add('hidden');
                     if(mobileBadge) mobileBadge.classList.add('hidden');
                     lastMessageCount = 0;
                 }
             }).catch(e => {});
         }
 
-        // Run checker immediately, then every 5 seconds
         checkSystemAlerts();
         setInterval(checkSystemAlerts, 5000);
 
         // ⭐ WebSockets Listeners (For Instant Updates & Tasks)
         document.addEventListener('DOMContentLoaded', function() {
             if (typeof Echo !== 'undefined' && window.UserId) {
-                
+
                 // 1. Instant Chat Message Listener
                 Echo.private(`chat.user.${window.UserId}`)
                     .listen('MessageSent', (data) => {
                         if (window.currentChatId !== data.message.sender_id) {
-                            checkSystemAlerts(); 
+                            checkSystemAlerts();
                         }
                     });
 
-                // 2. Instant Task Assignment Listener (Agar Admin Task assign kare)
+                // 2. Instant Task Assignment Listener
                 Echo.private(`user.alerts.${window.UserId}`)
                     .listen('TaskAssigned', (data) => {
-                        // Jab koi naya task milega, Purple color ka notification aayega
                         spawnToast(
-                            'New Mission Assigned', 
-                            `Task: ${data.task_title}`, 
-                            'fa-tasks', 
-                            'purple'
+                            'New Mission Assigned',
+                            `Task: ${data.task_title}`,
+                            'fa-tasks',
+                            'gold'
                         );
                     })
                     // System Updates / Admin Announcements
                     .listen('SystemAnnouncement', (data) => {
                         spawnToast(
-                            'System Update', 
-                            data.message, 
-                            'fa-bullhorn', 
+                            'System Update',
+                            data.message,
+                            'fa-bullhorn',
                             'emerald'
                         );
                     });
             }
         });
-        
-        // Example: How to trigger a task Toast manually (For Testing)
-        // setTimeout(() => spawnToast('New Mission Assigned', 'Build the auth middleware.', 'fa-tasks', 'purple'), 3000);
     </script>
 </body>
 </html>

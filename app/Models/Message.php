@@ -5,6 +5,7 @@ use Illuminate\Database\Eloquent\Model;
 class Message extends Model {
     // ⭐ FIX: file_path, file_name, or voice_path ko fillable mein add karna zaroori hai
     protected $fillable = [
+        'company_id', 
         'sender_id', 
         'receiver_id', 
         'group_name', 
@@ -18,5 +19,9 @@ class Message extends Model {
     
     public function sender() {
         return $this->belongsTo(User::class, 'sender_id');
+    }
+     public function company()
+    {
+        return $this->belongsTo(Company::class);
     }
 }
