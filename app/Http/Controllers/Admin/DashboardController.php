@@ -18,7 +18,11 @@ class DashboardController extends Controller
     {
         $timezone   = 'Asia/Karachi';
         $today      = Carbon::today($timezone);
-        $company_id = Auth::user()->company_id; // ⭐ Current Company Locked
+        $company    = Auth::user()->company; 
+        $company_id = $company->id; // ⭐ Current Company Locked
+
+        // 🟢 FIX 1: Removed AI Tools from here so they are dynamically detected as "AI"
+        $socialTools   = ['YOUTUBE', 'FACEBOOK', 'INSTAGRAM', 'TIKTOK', 'WHATSAPP', 'TWITTER', 'NETFLIX', 'SNAPCHAT'];
 
         // ── All employees (Isolated) ──────────────────────────────
         $employees = User::with('department')
@@ -44,24 +48,29 @@ class DashboardController extends Controller
         $activeTasks  = Task::where('company_id', $company_id)->whereNotIn('status', ['completed'])->count();
         $pendingTasks = Task::where('company_id', $company_id)->where('status', 'to_do')->count();
 
-        // ── Today's screenshots (Isolated) ────────────────────────
-        $todayPulses = Screenshot::whereHas('user', function($q) use ($company_id) {
-                $q->where('company_id', $company_id);
-            })->whereDate('created_at', $today)->count();
+        // ── Today's screenshots (Isolated & Feature Gated) ────────
+        $todayPulses = 0;
+        if ($company->hasFeature('screenshot_monitoring')) {
+            $todayPulses = Screenshot::whereHas('user', function($q) use ($company_id) {
+                    $q->where('company_id', $company_id);
+                })->whereDate('created_at', $today)->count();
+        }
 
-        // ── Today's AI usage summary (Isolated) ───────────────────
-        $todayAiSummary = AiUsageLog::whereHas('user', function($q) use ($company_id) {
-                $q->where('company_id', $company_id);
-            })
-            ->whereDate('log_date', $today)
-            ->where('ai_tool', '!=', 'IDLE')
-            ->selectRaw('ai_tool, COALESCE(SUM(duration_seconds), 0) as total_seconds, COUNT(DISTINCT user_id) as user_count')
-            ->groupBy('ai_tool')
-            ->orderByDesc('total_seconds')
-            ->take(6)
-            ->get();
-
-        $socialTools   = ['YOUTUBE', 'FACEBOOK', 'INSTAGRAM', 'TIKTOK', 'WHATSAPP', 'TWITTER', 'NETFLIX', 'SNAPCHAT', 'CHATGPT', 'GEMINI', 'DEEPSEEK', 'CLAUDE'];
+        // ── Today's AI usage summary (Isolated & Feature Gated) ───
+        $todayAiSummary = collect();
+        if ($company->hasFeature('ai_tool_tracking')) {
+            $todayAiSummary = AiUsageLog::whereHas('user', function($q) use ($company_id) {
+                    $q->where('company_id', $company_id);
+                })
+                ->whereDate('log_date', $today)
+                ->where('ai_tool', '!=', 'IDLE')
+                ->whereNotIn('ai_tool', $socialTools) // 🟢 Dynamic AI Detection
+                ->selectRaw('ai_tool, COALESCE(SUM(duration_seconds), 0) as total_seconds, COUNT(DISTINCT user_id) as user_count')
+                ->groupBy('ai_tool')
+                ->orderByDesc('total_seconds')
+                ->take(6)
+                ->get();
+        }
         
         $socialRecord  = AiUsageLog::whereHas('user', function($q) use ($company_id) {
                 $q->where('company_id', $company_id);
@@ -91,11 +100,15 @@ class DashboardController extends Controller
                 ->latest()
                 ->first();
 
-            $empAiToday = AiUsageLog::where('user_id', $emp->id)
-                ->whereDate('log_date', $today)
-                ->where('ai_tool', '!=', 'IDLE')
-                ->pluck('ai_tool')
-                ->toArray();
+            $empAiToday = [];
+            if ($company->hasFeature('ai_tool_tracking')) {
+                $empAiToday = AiUsageLog::where('user_id', $emp->id)
+                    ->whereDate('log_date', $today)
+                    ->where('ai_tool', '!=', 'IDLE')
+                    ->whereNotIn('ai_tool', $socialTools) // 🟢 Only AI Tools
+                    ->pluck('ai_tool')
+                    ->toArray();
+            }
 
             $empSocial = AiUsageLog::where('user_id', $emp->id)
                 ->whereDate('log_date', $today)
@@ -126,20 +139,25 @@ class DashboardController extends Controller
                 'ai_tools'            => $empAiToday,
                 'social_alert'        => $empSocial,
                 'active_tasks'        => $empActiveTasks,
+                // 🟢 FIX 2: Added Image evidence if AI is detected
+                'ai_activity_image'   => (!empty($empAiToday) && $latestSnap) ? asset('storage/' . $latestSnap->image_path) : null,
             ];
         }
 
         usort($employeeStatus, fn($a, $b) => $b['is_online'] <=> $a['is_online']);
 
-        // ── Latest 6 screenshots across all employees (Isolated) ───
-        $liveScreenshots = Screenshot::with('user')
-            ->whereHas('user', function($q) use ($company_id) {
-                $q->where('company_id', $company_id);
-            })
-            ->whereDate('created_at', $today)
-            ->latest()
-            ->take(6)
-            ->get();
+        // ── Latest 6 screenshots across all employees (Isolated & Feature Gated) ───
+        $liveScreenshots = collect();
+        if ($company->hasFeature('screenshot_monitoring')) {
+            $liveScreenshots = Screenshot::with('user')
+                ->whereHas('user', function($q) use ($company_id) {
+                    $q->where('company_id', $company_id);
+                })
+                ->whereDate('created_at', $today)
+                ->latest()
+                ->take(6)
+                ->get();
+        }
 
         // ── Weekly work hours chart (Isolated) ─────────────────────
         $weeklyData = [];
@@ -181,32 +199,42 @@ class DashboardController extends Controller
     }
 
     // ─────────────────────────────────────────────────────────────
-    // LIVE SCREENSHOTS JSON (Isolated)
+    // LIVE SCREENSHOTS PAGE (FIXED: Supports PDF Export & Filters)
     // ─────────────────────────────────────────────────────────────
-    public function liveScreenshots()
+    public function liveScreenshots(Request $request)
     {
-        $timezone   = 'Asia/Karachi';
-        $today      = Carbon::today($timezone);
-        $company_id = Auth::user()->company_id;
+        $company = Auth::user()->company;
+        
+        // 🟢 FIX 3: Feature Gating
+        if (!$company->hasFeature('screenshot_monitoring')) {
+            return redirect()->route('admin.dashboard')->with('error', 'Feature Locked! Upgrade your plan to access Live Screenshots.');
+        }
 
-        $shots = Screenshot::with('user')
+        $timezone   = 'Asia/Karachi';
+        $company_id = $company->id;
+        $period     = $request->get('period', 'today'); // Default aaj ka data
+
+        $query = Screenshot::with('user')
             ->whereHas('user', function($q) use ($company_id) {
                 $q->where('company_id', $company_id);
-            })
-            ->whereDate('created_at', $today)
-            ->latest()
-            ->take(12)
-            ->get()
-            ->map(fn($s) => [
-                'id'           => $s->id,
-                'user_name'    => $s->user->name ?? 'Unknown',
-                'image_url'    => asset('storage/' . $s->image_path),
-                'window_title' => $s->window_title ?? 'No title',
-                'is_admin'     => (bool) $s->triggered_by_admin,
-                'captured_at'  => $s->created_at->diffForHumans(),
-            ]);
+            });
 
-        return response()->json($shots);
+        // Filter Logic
+        if ($period == 'today') {
+            $query->whereDate('created_at', Carbon::today($timezone));
+        } elseif ($period == 'weekly') {
+            $query->whereBetween('created_at', [
+                Carbon::now($timezone)->startOfWeek(),
+                Carbon::now($timezone)->endOfWeek()
+            ]);
+        } elseif ($period == 'monthly') {
+            $query->whereMonth('created_at', Carbon::now($timezone)->month)
+                  ->whereYear('created_at', Carbon::now($timezone)->year);
+        }
+
+        $shots = $query->latest()->paginate(12);
+
+        return view('admin.screenshots.index', compact('shots'));
     }
 
     // ─────────────────────────────────────────────────────────────
@@ -216,8 +244,11 @@ class DashboardController extends Controller
     {
         $timezone    = 'Asia/Karachi';
         $today       = Carbon::today($timezone);
-        $company_id  = Auth::user()->company_id;
-        $socialTools = ['YOUTUBE', 'FACEBOOK', 'INSTAGRAM', 'TIKTOK', 'WHATSAPP', 'TWITTER', 'NETFLIX', 'SNAPCHAT', 'CHATGPT', 'GEMINI', 'DEEPSEEK', 'CLAUDE'];
+        $company     = Auth::user()->company;
+        $company_id  = $company->id;
+        
+        // 🟢 Separated AI vs Social
+        $socialTools = ['YOUTUBE', 'FACEBOOK', 'INSTAGRAM', 'TIKTOK', 'WHATSAPP', 'TWITTER', 'NETFLIX', 'SNAPCHAT'];
 
         $onlineEmployeeIds = Attendance::whereHas('user', function($q) use ($company_id) {
                 $q->where('company_id', $company_id);
@@ -231,13 +262,17 @@ class DashboardController extends Controller
         $data = User::where('company_id', $company_id)
             ->where('role', 'employee')
             ->get()
-            ->map(function ($emp) use ($onlineEmployeeIds, $today, $socialTools) {
+            ->map(function ($emp) use ($onlineEmployeeIds, $today, $socialTools, $company) {
                 $isOnline = in_array($emp->id, $onlineEmployeeIds);
 
                 $att = Attendance::where('user_id', $emp->id)->where('date', $today->toDateString())->latest('updated_at')->first();
                 $latestSnap = Screenshot::where('user_id', $emp->id)->whereDate('created_at', $today)->latest()->first();
 
-                $empAiToday = AiUsageLog::where('user_id', $emp->id)->whereDate('log_date', $today)->where('ai_tool', '!=', 'IDLE')->pluck('ai_tool')->toArray();
+                $empAiToday = [];
+                if ($company->hasFeature('ai_tool_tracking')) {
+                    $empAiToday = AiUsageLog::where('user_id', $emp->id)->whereDate('log_date', $today)->where('ai_tool', '!=', 'IDLE')->whereNotIn('ai_tool', $socialTools)->pluck('ai_tool')->toArray();
+                }
+                
                 $empSocial = AiUsageLog::where('user_id', $emp->id)->whereDate('log_date', $today)->whereIn('ai_tool', $socialTools)->exists();
 
                 $totalWorkSeconds = $att ? $att->work_time : 0;
@@ -253,6 +288,8 @@ class DashboardController extends Controller
                     'check_in'            => $att && $att->check_in ? $att->check_in : null,
                     'ai_tools'            => $empAiToday,
                     'social_alert'        => $empSocial,
+                    // 🟢 Image with AI tool integration here as well
+                    'ai_activity_image'   => (!empty($empAiToday) && $latestSnap) ? asset('storage/' . $latestSnap->image_path) : null,
                     'latest_snap'         => $latestSnap ? [
                         'url'   => asset('storage/' . $latestSnap->image_path),
                         'title' => $latestSnap->window_title ?? 'No title',
@@ -265,24 +302,35 @@ class DashboardController extends Controller
     }
 
     // ─────────────────────────────────────────────────────────────
-    // AI HEATMAP JSON (Isolated)
+    // AI HEATMAP PAGE (FIXED: Now returns a view instead of JSON)
     // ─────────────────────────────────────────────────────────────
     public function aiHeatmap()
     {
+        $company = Auth::user()->company;
+
+        // 🟢 FIX 3: Feature Gating
+        if (!$company->hasFeature('ai_tool_tracking')) {
+            return redirect()->route('admin.dashboard')->with('error', 'Feature Locked! Upgrade your plan to access AI Radar.');
+        }
+
         $timezone    = 'Asia/Karachi';
         $today       = Carbon::today($timezone)->toDateString();
-        $company_id  = Auth::user()->company_id;
-        $socialTools = ['YOUTUBE', 'FACEBOOK', 'INSTAGRAM', 'TIKTOK', 'WHATSAPP', 'TWITTER', 'NETFLIX', 'SNAPCHAT', 'CHATGPT', 'GEMINI', 'DEEPSEEK', 'CLAUDE'];
+        $company_id  = $company->id;
+        $socialTools = ['YOUTUBE', 'FACEBOOK', 'INSTAGRAM', 'TIKTOK', 'WHATSAPP', 'TWITTER', 'NETFLIX', 'SNAPCHAT'];
 
-        $data = User::where('company_id', $company_id)
+        $heatmapData = User::where('company_id', $company_id)
             ->where('role', 'employee')
             ->with(['aiUsageLogs' => function ($q) use ($today) {
                 $q->whereDate('log_date', $today)->where('ai_tool', '!=', 'IDLE');
             }])
             ->get()
-            ->map(function ($emp) use ($socialTools) {
+            ->map(function ($emp) use ($socialTools, $today) {
                 $aiTools    = $emp->aiUsageLogs->whereNotIn('ai_tool', $socialTools);
                 $socialLogs = $emp->aiUsageLogs->whereIn('ai_tool', $socialTools);
+                
+                // 🟢 Added Image Snapshot with AI
+                $snapshot = Screenshot::where('user_id', $emp->id)->whereDate('created_at', $today)->latest()->first();
+
                 return [
                     'id'             => $emp->id,
                     'name'           => $emp->name,
@@ -290,10 +338,11 @@ class DashboardController extends Controller
                     'social_seconds' => $socialLogs->sum('duration_seconds'),
                     'ai_tools'       => $aiTools->pluck('ai_tool')->unique()->values(),
                     'social_tools'   => $socialLogs->pluck('ai_tool')->unique()->values(),
+                    'last_snapshot'  => $snapshot ? asset('storage/' . $snapshot->image_path) : null,
                 ];
             });
 
-        return response()->json($data);
+        return view('admin.ai_heatmap.index', compact('heatmapData'));
     }
 
     // ─────────────────────────────────────────────────────────────
@@ -301,7 +350,12 @@ class DashboardController extends Controller
     // ─────────────────────────────────────────────────────────────
     public function employeeAiActivity($id)
     {
-        $company_id = Auth::user()->company_id;
+        $company = Auth::user()->company;
+        $company_id = $company->id;
+        
+        if (!$company->hasFeature('ai_tool_tracking')) {
+            return response()->json(['error' => 'Feature Locked'], 403);
+        }
         
         $empExists = User::where('id', $id)->where('company_id', $company_id)->exists();
         if (!$empExists) return response()->json([], 403);
@@ -313,11 +367,16 @@ class DashboardController extends Controller
             ->whereDate('log_date', $today)
             ->where('ai_tool', '!=', 'IDLE')
             ->get()
-            ->map(fn($l) => [
-                'tool'    => $l->ai_tool,
-                'minutes' => round($l->duration_seconds / 60),
-                'title'   => $l->activity_title,
-            ]);
+            ->map(function($l) use ($id, $today) {
+                // 🟢 Map Image with log
+                $snap = Screenshot::where('user_id', $id)->whereDate('created_at', $today)->latest()->first();
+                return [
+                    'tool'    => $l->ai_tool,
+                    'minutes' => round($l->duration_seconds / 60),
+                    'title'   => $l->activity_title,
+                    'image'   => $snap ? asset('storage/' . $snap->image_path) : null,
+                ];
+            });
 
         return response()->json($logs);
     }

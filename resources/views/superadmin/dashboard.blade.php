@@ -1,16 +1,42 @@
 @extends('layouts.superadmin')
 
-@section('title', 'Master Dashboard | Command Center')
+@section('title', auth()->check() && auth()->user()->role === 'partner' ? 'Partner Dashboard | Command Center' : 'Master Dashboard | Command Center')
 
 @section('content')
+
+{{-- 💡 SMART ROUTING FIXED: Agar partner hai toh 'partner.' warna 'superadmin.' lagaye ga --}}
+@php
+    $routePrefix = auth()->check() && auth()->user()->role === 'partner' ? 'partner.' : 'superadmin.';
+@endphp
+
 <div class="w-full">
 
     <div class="mb-10 flex justify-between items-end">
         <div>
-            <h2 class="text-3xl font-light tracking-wide text-[#eaeef2]">Welcome back, <span class="font-bold text-[#d2a63d]">Command.</span></h2>
+            {{-- Dynamic Badge for Super Admin vs Partner --}}
+            @if(auth()->check() && auth()->user()->role === 'partner')
+                <div class="inline-flex items-center gap-2 bg-[#d2a63d]/10 border border-[#d2a63d]/30 px-3 py-1 rounded-full mb-4 shadow-[0_0_10px_rgba(210,166,61,0.2)]">
+                    <i class="fa-solid fa-handshake text-[#d2a63d] text-[10px]"></i>
+                    <span class="text-[10px] font-black text-[#d2a63d] uppercase tracking-widest">Authorized Partner Terminal</span>
+                </div>
+            @else
+                <div class="inline-flex items-center gap-2 bg-[#d2a63d]/10 border border-[#d2a63d]/30 px-3 py-1 rounded-full mb-4 shadow-[0_0_10px_rgba(210,166,61,0.2)]">
+                    <i class="fa-solid fa-crown text-[#d2a63d] text-[10px]"></i>
+                    <span class="text-[10px] font-black text-[#d2a63d] uppercase tracking-widest">Master Command Terminal</span>
+                </div>
+            @endif
+
+            <h2 class="text-3xl font-light tracking-wide text-[#eaeef2]">
+                Welcome back, 
+                <span class="font-bold text-[#d2a63d]">
+                    {{ auth()->check() && auth()->user()->role === 'partner' ? 'Partner.' : 'Command.' }}
+                </span>
+            </h2>
             <p class="text-[#eaeef2]/50 text-sm mt-1">Global overview of your SaaS network.</p>
         </div>
-        <a href="{{ route('company.create') }}" class="bg-[#d2a63d] hover:bg-[#b88e2c] text-[#010717] px-6 py-2.5 rounded-xl shadow-[0_0_20px_rgba(210,166,61,0.3)] transition-all duration-300 font-bold flex items-center gap-2">
+        
+        {{-- Fixed Route: Ab yeh Partner aur Admin dono ke liye sahi kaam karega --}}
+        <a href="{{ route($routePrefix . 'company.create') }}" class="bg-[#d2a63d] hover:bg-[#b88e2c] text-[#010717] px-6 py-2.5 rounded-xl shadow-[0_0_20px_rgba(210,166,61,0.3)] transition-all duration-300 font-bold flex items-center gap-2">
             <i class="fa-solid fa-plus"></i> New Tenant
         </a>
     </div>
@@ -59,7 +85,6 @@
                 @forelse($companies ?? [] as $company)
                 <tr class="hover:bg-[#d2a63d]/5 transition-colors">
                     
-                    {{-- UI FIX: Removed flex from <td> and added a wrapper <div> --}}
                     <td class="px-8 py-5">
                         <div class="flex items-center gap-3">
                             @if($company->logo)
@@ -83,7 +108,6 @@
 
                     <td class="px-6 py-5 text-[#eaeef2]/70">{{ $company->email }}</td>
                     
-                    {{-- Performance FIX: Using pre-loaded aggregates instead of new queries --}}
                     <td class="px-6 py-5 w-40">
                         @php 
                             $liveAdminCount = $company->admins_count ?? 0;
@@ -113,22 +137,24 @@
                     <td class="px-8 py-5 text-right">
                         <div class="flex justify-end gap-2">
                             
-                            <form action="{{ route('superadmin.impersonate', $company->id) }}" method="POST" class="inline">
+                            {{-- Impersonate Route Fix --}}
+                            <form action="{{ route(auth()->user()->role === 'partner' ? 'partner.impersonate' : 'superadmin.impersonate', $company->id) }}" method="POST" class="inline">
                                 @csrf
                                 <button type="submit" title="Login as Admin" class="w-8 h-8 rounded-lg bg-purple-500/10 text-purple-400 hover:bg-purple-500 hover:text-white border border-purple-500/30 flex items-center justify-center transition-all">
                                     <i class="fa-solid fa-user-secret text-xs"></i>
                                 </button>
                             </form>
 
-                            <a href="{{ route('company.show', $company->id) }}" title="View Intel" class="w-8 h-8 rounded-lg bg-blue-500/10 text-blue-400 hover:bg-blue-500 hover:text-white border border-blue-500/30 flex items-center justify-center transition-all">
+                            {{-- Control Links Fixed with $routePrefix --}}
+                            <a href="{{ route($routePrefix . 'company.show', $company->id) }}" title="View Intel" class="w-8 h-8 rounded-lg bg-blue-500/10 text-blue-400 hover:bg-blue-500 hover:text-white border border-blue-500/30 flex items-center justify-center transition-all">
                                 <i class="fa-solid fa-eye text-xs"></i>
                             </a>
 
-                            <a href="{{ route('company.edit', $company->id) }}" title="Modify Tenant" class="w-8 h-8 rounded-lg bg-yellow-500/10 text-yellow-400 hover:bg-yellow-500 hover:text-[#010717] border border-yellow-500/30 flex items-center justify-center transition-all">
+                            <a href="{{ route($routePrefix . 'company.edit', $company->id) }}" title="Modify Tenant" class="w-8 h-8 rounded-lg bg-yellow-500/10 text-yellow-400 hover:bg-yellow-500 hover:text-[#010717] border border-yellow-500/30 flex items-center justify-center transition-all">
                                 <i class="fa-solid fa-pen text-xs"></i>
                             </a>
 
-                            <form action="{{ route('company.renew', $company->id) }}" method="POST" class="inline" onsubmit="return confirm('Renew subscription for 30 days?');">
+                            <form action="{{ route($routePrefix . 'company.renew', $company->id) }}" method="POST" class="inline" onsubmit="return confirm('Renew subscription for 30 days?');">
                                 @csrf
                                 <button type="submit" title="Renew Billing" class="w-8 h-8 rounded-lg bg-green-500/10 text-green-400 hover:bg-green-500 hover:text-[#010717] border border-green-500/30 flex items-center justify-center transition-all">
                                     <i class="fa-solid fa-file-invoice-dollar text-xs"></i>
@@ -136,14 +162,14 @@
                             </form>
 
                             @if($company->status == 'active')
-                                <form action="{{ route('company.toggle', $company->id) }}" method="POST" class="inline">
+                                <form action="{{ route($routePrefix . 'company.toggle', $company->id) }}" method="POST" class="inline">
                                     @csrf
                                     <button type="submit" title="Kick / Suspend Tenant" class="h-8 px-3 rounded-lg bg-orange-500/10 text-orange-400 border border-orange-500/30 hover:bg-orange-500 hover:text-white flex items-center justify-center gap-1 font-black text-[9px] uppercase tracking-widest transition-all">
                                         <i class="fa-solid fa-user-slash text-[10px]"></i> KICK
                                     </button>
                                 </form>
                             @else
-                                <form action="{{ route('company.toggle', $company->id) }}" method="POST" class="inline">
+                                <form action="{{ route($routePrefix . 'company.toggle', $company->id) }}" method="POST" class="inline">
                                     @csrf
                                     <button type="submit" title="Unban / Restore Tenant" class="h-8 px-3 rounded-lg bg-green-500/10 text-green-400 border border-green-500/30 hover:bg-green-500 hover:text-[#010717] flex items-center justify-center gap-1 font-black text-[9px] uppercase tracking-widest transition-all">
                                         <i class="fa-solid fa-user-check text-[10px]"></i> UNBAN
@@ -151,7 +177,7 @@
                                 </form>
                             @endif
 
-                            <form action="{{ route('company.destroy', $company->id) }}" method="POST" class="inline" onsubmit="return confirm('WARNING: Permanently delete tenant and all data?');">
+                            <form action="{{ route($routePrefix . 'company.destroy', $company->id) }}" method="POST" class="inline" onsubmit="return confirm('WARNING: Permanently delete tenant and all data?');">
                                 @csrf @method('DELETE')
                                 <button type="submit" title="Purge Tenant" class="w-8 h-8 rounded-lg bg-red-500/10 text-red-400 hover:bg-red-500 hover:text-white border border-red-500/30 flex items-center justify-center transition-all">
                                     <i class="fa-solid fa-trash text-xs"></i>

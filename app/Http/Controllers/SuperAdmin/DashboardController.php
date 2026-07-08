@@ -3,10 +3,11 @@
 namespace App\Http\Controllers\SuperAdmin;
 
 use App\Http\Controllers\Controller;
-use App\Models\{Company, User, AuditLog};
+use App\Models\{Company, User, AuditLog, SubscriptionPlan, Invoice};
+use App\Support\PlanFeatures;
 use Illuminate\Http\Request;
 use Carbon\Carbon;
-use Illuminate\Support\Facades\{Hash, Storage, Auth, DB};
+use Illuminate\Support\Facades\{Hash, Storage, Auth};
 
 class DashboardController extends Controller
 {
@@ -23,45 +24,72 @@ class DashboardController extends Controller
         ]);
     }
 
-    // 1. Dashboard Stats
+    // 1. Dashboard Stats (THE WATCHTOWER)
     public function index()
     {
+        // Grand Totals for Master Control View
+        $totalCompanies = Company::count();
+        $totalPartners  = User::where('role', 'partner')->count();
+        $totalAdmins    = User::where('role', 'admin')->count();
+        $totalEmployees = User::where('role', 'employee')->count();
+        
         $stats = [
-            'total_companies'   => Company::count(),
+            'total_companies'   => $totalCompanies,
             'active_companies'  => Company::where('status', 'active')->count(),
             'expired_companies' => Company::where('subscription_ends_at', '<', now())->count(),
             'unpaid_invoices'   => Company::where('payment_status', 'unpaid')->count(),
         ];
         
-        $companies = Company::withCount(['employees', 'admins'])->latest()->get();
+        // Fetch companies with partner info and counts
+        $companies = Company::with('partner')->withCount([
+            'users as admins_count' => function ($query) {
+                $query->where('role', 'admin');
+            }, 
+            'users as employees_count' => function ($query) {
+                $query->where('role', 'employee');
+            }
+        ])->latest()->paginate(10);
         
-        return view('superadmin.dashboard', compact('stats', 'companies'));
+        return view('superadmin.dashboard', compact('stats', 'totalCompanies', 'totalPartners', 'totalAdmins', 'totalEmployees', 'companies'));
     }
 
     // 2. Create View
-    public function create() { 
-        return view('superadmin.company.create'); 
+    public function create() 
+    { 
+        PlanFeatures::syncOfficialPlans();
+        $plans = SubscriptionPlan::orderBy('price', 'asc')->get();
+        return view('superadmin.company.create', compact('plans')); 
     }
 
-    // 3. Store New Tenant (UPDATED WITH PLAN TYPE)
+    // 3. Store New Tenant (By Super Admin)
     public function store(Request $request)
     {
         $request->validate([
             'name'           => 'required|string|max:255',
             'email'          => 'required|email|unique:companies,email|unique:users,email',
-            'max_employees'  => 'required|integer|min:1',
+            'max_employees'  => 'required|integer|min:5', 
             'admin_password' => 'required|string|min:6',
-            'plan_type'      => 'required|in:starter,basic,pro,advanced,private_label,enterprise', // Added validation
+            'plan_type'      => 'required|exists:subscription_plans,slug',
         ]);
 
+        $plan = SubscriptionPlan::where('slug', $request->plan_type)->firstOrFail();
+
+        $basePrice = $plan->price;
+        $extraUsers = max(0, $request->max_employees - 5);
+        $extraUserCost = $extraUsers * $plan->extra_user_rate;
+        $finalAmount = $basePrice + $extraUserCost;
+
         $company = Company::create([
+            'partner_id'           => null, // Master Record: Super Admin deployed
             'name'                 => $request->name,
             'email'                => $request->email,
             'max_employees'        => $request->max_employees,
-            'plan_type'            => $request->plan_type, // Saved the plan type
+            'plan_type'            => $request->plan_type,
+            // 🚀 AUTO-ASSIGN FEATURES BASED ON SELECTED PLAN
+            'features'             => $plan->features ?? PlanFeatures::forPlan($plan->slug),
             'status'               => 'active',
             'payment_status'       => 'unpaid',
-            'subscription_ends_at' => now()->addMonth(),
+            'subscription_ends_at' => now()->addDays(30),
         ]);
 
         User::create([
@@ -73,9 +101,19 @@ class DashboardController extends Controller
             'status'     => 'active'
         ]);
 
-        $this->logAction('Created Company', 'Initialized new tenant: ' . $company->name . ' on [' . strtoupper($request->plan_type) . '] plan', $company->id);
+        $invoice = Invoice::create([
+            'company_id'     => $company->id,
+            'invoice_number' => 'INV-' . date('Ymd') . '-' . strtoupper(substr(uniqid(), -4)),
+            'plan_name'      => $plan->name,
+            'total_users'    => $request->max_employees,
+            'total_amount'   => $finalAmount,
+            'status'         => 'unpaid',
+            'due_date'       => now()->addDays(7)
+        ]);
 
-        return redirect()->route('superadmin.dashboard')->with('success', 'Tenant initialized!');
+        $this->logAction('Deployed Tenant', "Deployed {$company->name} on {$plan->name}. Invoice {$invoice->invoice_number} generated for PKR " . number_format($finalAmount), $company->id);
+
+        return redirect()->route('superadmin.dashboard')->with('success', "Tenant deployed successfully! Automated Invoice ({$invoice->invoice_number}) generated for PKR " . number_format($finalAmount));
     }
 
     // 4. CRUD Operations
@@ -84,30 +122,39 @@ class DashboardController extends Controller
     }
     
     public function edit($id) { 
-        return view('superadmin.company.edit', ['company' => Company::findOrFail($id)]); 
+        $company = Company::findOrFail($id);
+        $plans = SubscriptionPlan::orderBy('price', 'asc')->get(); 
+        return view('superadmin.company.edit', compact('company', 'plans')); 
     }
 
-    // ⭐ FIX: Added 'plan_type' in update method so Super Admin can change plans
     public function update(Request $request, $id)
     {
         $company = Company::findOrFail($id);
         
-        // Validation with ignore current company email to prevent errors
         $request->validate([
             'name'          => 'required|string|max:255',
             'email'         => 'required|email|unique:companies,email,'.$company->id,
             'max_employees' => 'required|integer|min:1',
-            'plan_type'     => 'required|in:starter,basic,pro,advanced,private_label,enterprise',
+            'plan_type'     => 'required|exists:subscription_plans,slug',
         ]);
 
-        // plan_type array mein add kar diya hai
-        $company->update($request->only(['name', 'email', 'phone', 'max_employees', 'plan_type']));
+        $plan = SubscriptionPlan::where('slug', $request->plan_type)->firstOrFail();
+
+        $company->update([
+            'name'          => $request->name,
+            'email'         => $request->email,
+            'phone'         => $request->phone,
+            'max_employees' => $request->max_employees,
+            'plan_type'     => $request->plan_type,
+            // 🚀 AUTO-SYNC FEATURES ON UPGRADE/DOWNGRADE
+            'features'      => $plan->features ?? PlanFeatures::forPlan($plan->slug),
+        ]);
         
         $this->logAction('Updated Company', 'Modified details for: ' . $company->name, $company->id);
-        return redirect()->route('superadmin.dashboard')->with('success', 'Tenant updated!');
+        return redirect()->route('superadmin.dashboard')->with('success', 'Tenant updated! Features synced with plan.');
     }
 
-    // 5. Impersonation (God Mode)
+    // 5. Impersonation (God Mode) - Super Admin to Tenant Admin
     public function impersonate($companyId)
     {
         $admin = User::where('company_id', $companyId)->where('role', 'admin')->firstOrFail();
@@ -124,7 +171,6 @@ class DashboardController extends Controller
         return redirect()->route('admin.dashboard')->with('success', 'God Mode Activated. Shadow Audit is tracking.');
     }
 
-    // 6. EXIT GOD MODE
     public function exitImpersonation()
     {
         if (session()->has('superadmin_id')) {
@@ -135,7 +181,33 @@ class DashboardController extends Controller
         return redirect()->route('superadmin.dashboard');
     }
 
-    // 7. KICK / UNBAN
+    // 6. Impersonation (God Mode) - Super Admin to Partner
+    public function impersonatePartner($id)
+    {
+        $partner = User::where('id', $id)->where('role', 'partner')->firstOrFail();
+        
+        session(['superadmin_id' => Auth::id()]); 
+        
+        Auth::login($partner);
+        
+        return redirect()->route('partner.dashboard')->with('success', 'God Mode: Entered Partner Dashboard.');
+    }
+
+    public function exitPartnerImpersonation()
+    {
+        if (session()->has('superadmin_id')) {
+            $superAdminId = session('superadmin_id');
+            $superAdmin = User::findOrFail($superAdminId);
+            
+            session()->forget('superadmin_id');
+            Auth::login($superAdmin);
+            
+            return redirect()->route('superadmin.partners.index')->with('success', 'Returned to Master Control.');
+        }
+        
+        return redirect()->route('home');
+    }
+
     public function toggleStatus($id)
     {
         $company = Company::findOrFail($id);
@@ -145,7 +217,6 @@ class DashboardController extends Controller
         User::where('company_id', $id)->update(['status' => $newStatus]);
         
         if ($newStatus === 'suspended') {
-            DB::table('sessions')->whereIn('user_id', User::where('company_id', $id)->pluck('id'))->delete();
             $msg = 'Tenant Kicked: Access terminated.';
         } else {
             $msg = 'Tenant Unbanned: Access restored.';
@@ -156,7 +227,6 @@ class DashboardController extends Controller
         return back()->with('success', $msg);
     }
 
-    // 8. RENEW SUBSCRIPTION
     public function renewSubscription(Request $request, $id)
     {
         $company = Company::findOrFail($id);
@@ -167,13 +237,11 @@ class DashboardController extends Controller
         ]);
 
         User::where('company_id', $id)->update(['status' => 'active']);
-        
         $this->logAction('Subscription Renewed', 'Extended 30 days for: ' . $company->name, $id);
 
         return back()->with('success', 'Subscription successfully renewed!');
     }
 
-    // 9. Purge Tenant
     public function destroy($id)
     {
         $company = Company::findOrFail($id);

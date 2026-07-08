@@ -5,10 +5,11 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
+use App\Traits\LogsActivity; // 🟢 1. LOGS ACTIVITY IMPORT KI GAYI HAI
 
 class User extends Authenticatable
 {
-    use HasFactory, Notifiable;
+    use HasFactory, Notifiable, LogsActivity; // 🟢 2. YAHAN TRAIT ADD KI GAYI HAI
 
     protected $fillable = [
         'name',
@@ -69,9 +70,16 @@ class User extends Authenticatable
     {
         return $this->belongsTo(Company::class);
     }
+    
     // Agar user 'assistant_admin' hai toh wo kin companies ko manage karta hai
-public function managedCompanies()
-{
-    return $this->belongsToMany(Company::class, 'company_assistant', 'user_id', 'company_id');
-}
+    public function managedCompanies()
+    {
+        return $this->belongsToMany(Company::class, 'company_assistant', 'user_id', 'company_id');
+    }
+    
+    // YEH RELATIONSHIP LAZMI HONI CHAHIYE
+    public function companies()
+    {
+        return $this->hasMany(Company::class, 'partner_id');
+    }
 }

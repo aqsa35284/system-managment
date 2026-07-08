@@ -86,18 +86,43 @@
                         </div>
                         
                         <div class="flex flex-wrap justify-center gap-3">
-                            <button onclick="triggerPulse({{ $employee->id }})" class="flex items-center gap-2 bg-[#d2a63d] text-[#010717] px-5 py-2.5 rounded-xl font-black uppercase text-[10px] tracking-widest hover:bg-[#d2a63d]/80 hover:-translate-y-0.5 transition-all shadow-[0_0_20px_rgba(210,166,61,0.3)]">
-                                <i class="fas fa-crosshairs"></i> Stealth Pulse
-                            </button>
-                            <a href="{{ route('admin.employees.pulses', $employee->id) }}" class="flex items-center gap-2 bg-[#010717] text-[#eaeef2]/70 border border-[#d2a63d]/30 px-5 py-2.5 rounded-xl font-black uppercase text-[10px] tracking-widest hover:text-[#eaeef2] hover:border-[#d2a63d] hover:-translate-y-0.5 transition-all">
-                                <i class="fas fa-photo-video"></i> Archives
-                            </a>
+                            {{-- 🔒 STEALTH PULSE (PRO) --}}
+                            @if(auth()->user()->company->hasFeature('manual_screenshot_trigger'))
+                                <button onclick="triggerPulse({{ $employee->id }})" class="flex items-center gap-2 bg-[#d2a63d] text-[#010717] px-5 py-2.5 rounded-xl font-black uppercase text-[10px] tracking-widest hover:bg-[#d2a63d]/80 hover:-translate-y-0.5 transition-all shadow-[0_0_20px_rgba(210,166,61,0.3)]">
+                                    <i class="fas fa-crosshairs"></i> Stealth Pulse
+                                </button>
+                            @else
+                                <button onclick="upgradePrompt('Pro', 'Manual Screenshot Trigger')" class="flex items-center gap-2 bg-[#010717] text-[#eaeef2]/30 border border-[#d2a63d]/10 px-5 py-2.5 rounded-xl font-black uppercase text-[10px] tracking-widest cursor-not-allowed">
+                                    <i class="fas fa-lock"></i> Stealth Pulse
+                                </button>
+                            @endif
+
+                            {{-- 🔒 ARCHIVES (BASIC) --}}
+                            @if(auth()->user()->company->hasFeature('screenshot_gallery'))
+                                <a href="{{ route('admin.employees.pulses', $employee->id) }}" class="flex items-center gap-2 bg-[#010717] text-[#eaeef2]/70 border border-[#d2a63d]/30 px-5 py-2.5 rounded-xl font-black uppercase text-[10px] tracking-widest hover:text-[#eaeef2] hover:border-[#d2a63d] hover:-translate-y-0.5 transition-all">
+                                    <i class="fas fa-photo-video"></i> Archives
+                                </a>
+                            @else
+                                <button onclick="upgradePrompt('Basic', 'Screenshot Gallery')" class="flex items-center gap-2 bg-[#010717] text-[#eaeef2]/30 border border-[#d2a63d]/10 px-5 py-2.5 rounded-xl font-black uppercase text-[10px] tracking-widest cursor-not-allowed">
+                                    <i class="fas fa-lock"></i> Archives
+                                </button>
+                            @endif
+                            
+                            {{-- LOGS (OPEN) --}}
                             <a href="{{ route('admin.tasks.forward-history', ['user_id' => $employee->id]) }}" class="flex items-center gap-2 bg-[#010717] text-[#eaeef2]/70 border border-[#d2a63d]/30 px-5 py-2.5 rounded-xl font-black uppercase text-[10px] tracking-widest hover:text-[#eaeef2] hover:border-[#d2a63d] hover:-translate-y-0.5 transition-all">
                                 <i class="fas fa-route"></i> Logs
                             </a>
-                            <button onclick="openFeedbackModal()" class="flex items-center gap-2 bg-[#d2a63d]/10 text-[#d2a63d] border border-[#d2a63d]/30 px-5 py-2.5 rounded-xl font-black uppercase text-[10px] tracking-widest hover:bg-[#d2a63d] hover:text-[#010717] hover:-translate-y-0.5 transition-all">
-                                <i class="fas fa-star"></i> Evaluate
-                            </button>
+
+                            {{-- 🔒 EVALUATE (PRO) --}}
+                            @if(auth()->user()->company->hasFeature('employee_rating_feedback'))
+                                <button onclick="openFeedbackModal()" class="flex items-center gap-2 bg-[#d2a63d]/10 text-[#d2a63d] border border-[#d2a63d]/30 px-5 py-2.5 rounded-xl font-black uppercase text-[10px] tracking-widest hover:bg-[#d2a63d] hover:text-[#010717] hover:-translate-y-0.5 transition-all">
+                                    <i class="fas fa-star"></i> Evaluate
+                                </button>
+                            @else
+                                <button onclick="upgradePrompt('Pro', 'Employee Evaluation & Feedback')" class="flex items-center gap-2 bg-[#010717] text-[#eaeef2]/30 border border-[#d2a63d]/10 px-5 py-2.5 rounded-xl font-black uppercase text-[10px] tracking-widest cursor-not-allowed">
+                                    <i class="fas fa-lock"></i> Evaluate
+                                </button>
+                            @endif
                         </div>
                     </div>
 
@@ -106,22 +131,40 @@
                             <p class="text-[9px] text-[#eaeef2]/50 uppercase tracking-widest mb-1 flex items-center gap-1.5"><i class="far fa-clock text-[#d2a63d]"></i> Work Time ({{ ucfirst($period) }})</p>
                             <p class="text-2xl font-black text-[#eaeef2]">{{ $totalWorkDisplay }}</p>
                         </div>
-                        <div class="bg-[#d2a63d]/5 p-4 rounded-2xl border border-[#d2a63d]/20 backdrop-blur-sm">
+                        
+                        {{-- 🔒 AI LOGIC (ADVANCED) --}}
+                        <div class="bg-[#d2a63d]/5 p-4 rounded-2xl border border-[#d2a63d]/20 backdrop-blur-sm relative group">
                             <p class="text-[9px] text-[#eaeef2]/50 uppercase tracking-widest mb-1 flex items-center gap-1.5"><i class="fas fa-robot text-[#d2a63d]"></i> AI Logic ({{ ucfirst($period) }})</p>
-                            <p class="text-2xl font-black text-[#eaeef2]">{{ $aiPercentage }}%</p>
+                            @if(auth()->user()->company->hasFeature('ai_tool_tracking'))
+                                <p class="text-2xl font-black text-[#eaeef2]">{{ $aiPercentage }}%</p>
+                            @else
+                                <p class="text-[10px] font-black text-[#eaeef2]/30 mt-2 cursor-pointer hover:text-rose-400 flex items-center gap-1" onclick="upgradePrompt('Advanced', 'AI Tool Tracking')">
+                                    <i class="fas fa-lock"></i> ADV LOCKED
+                                </p>
+                            @endif
                         </div>
+
                         <div class="bg-[#d2a63d]/5 p-4 rounded-2xl border border-[#d2a63d]/20 backdrop-blur-sm">
                             <p class="text-[9px] text-[#eaeef2]/50 uppercase tracking-widest mb-1 flex items-center gap-1.5"><i class="fas fa-camera text-[#d2a63d]"></i> Scans ({{ ucfirst($period) }})</p>
                             <p class="text-2xl font-black text-[#eaeef2]">{{ $todayPulseCount }}</p>
                         </div>
+
+                        {{-- 🔒 DISTRACTIONS (ADVANCED/BASIC) --}}
                         <div class="bg-[#d2a63d]/5 p-4 rounded-2xl border border-[#d2a63d]/20 backdrop-blur-sm relative overflow-hidden group">
-                            @if($socialMediaActivity->sum('count') > 0)
-                                <div class="absolute inset-0 bg-red-500/10 animate-pulse"></div>
+                            @if(auth()->user()->company->hasFeature('website_app_tracking'))
+                                @if($socialMediaActivity->sum('count') > 0)
+                                    <div class="absolute inset-0 bg-red-500/10 animate-pulse"></div>
+                                @endif
+                                <p class="text-[9px] text-[#eaeef2]/50 uppercase tracking-widest mb-1 flex items-center gap-1.5 relative z-10"><i class="fas fa-exclamation-triangle text-[#d2a63d]"></i> Distractions ({{ ucfirst($period) }})</p>
+                                <p class="text-2xl font-black mt-1 relative z-10 {{ $socialMediaActivity->sum('count') > 0 ? 'text-[#d2a63d] drop-shadow-[0_0_10px_rgba(210,166,61,0.5)]' : 'text-[#eaeef2]' }}">
+                                    {{ $socialMediaActivity->sum('count') }}
+                                </p>
+                            @else
+                                <p class="text-[9px] text-[#eaeef2]/50 uppercase tracking-widest mb-1 flex items-center gap-1.5"><i class="fas fa-exclamation-triangle text-[#d2a63d]"></i> Distractions</p>
+                                <p class="text-[10px] font-black text-[#eaeef2]/30 mt-2 cursor-pointer hover:text-blue-400 flex items-center gap-1" onclick="upgradePrompt('Basic', 'Website & App Tracking')">
+                                    <i class="fas fa-lock"></i> BASIC LOCKED
+                                </p>
                             @endif
-                            <p class="text-[9px] text-[#eaeef2]/50 uppercase tracking-widest mb-1 flex items-center gap-1.5 relative z-10"><i class="fas fa-exclamation-triangle text-[#d2a63d]"></i> Distractions ({{ ucfirst($period) }})</p>
-                            <p class="text-2xl font-black mt-1 relative z-10 {{ $socialMediaActivity->sum('count') > 0 ? 'text-[#d2a63d] drop-shadow-[0_0_10px_rgba(210,166,61,0.5)]' : 'text-[#eaeef2]' }}">
-                                {{ $socialMediaActivity->sum('count') }}
-                            </p>
                         </div>
                     </div>
                 </div>
@@ -150,43 +193,55 @@
             {{-- ── LEFT PANE (TASKS, AI, SHIFTS) ──────────────── --}}
             <div class="xl:col-span-2 space-y-8">
                 
-                {{-- AI UTILIZATION MATRIX --}}
+                {{-- 🔒 AI UTILIZATION MATRIX (ADVANCED) --}}
                 <div class="bg-[#010717] rounded-3xl p-8 border border-[#d2a63d]/20 shadow-xl relative overflow-hidden">
                     <div class="absolute top-0 right-0 w-32 h-32 bg-[#d2a63d]/10 rounded-full blur-3xl"></div>
                     <h4 class="text-[10px] font-black text-[#d2a63d] uppercase tracking-[0.2em] mb-8 flex items-center gap-3">
                         <i class="fas fa-brain text-lg"></i> Neural & AI Analysis — {{ ucfirst($period) }}
                     </h4>
                     
-                    @if($aiToolBreakdown->count() > 0)
-                    <div class="space-y-6 relative z-10">
-                        @foreach($aiToolBreakdown as $tool)
-                        @php
-                            $toolMins = round($tool->total_seconds / 60);
-                            $maxSecs  = $aiToolBreakdown->max('total_seconds') ?: 1;
-                            $barPct   = round(($tool->total_seconds / $maxSecs) * 100);
-                        @endphp
-                        <div class="group">
-                            <div class="flex justify-between items-end mb-2">
-                                <div class="flex items-center gap-2">
-                                    <span class="w-1.5 h-1.5 rounded-full bg-[#d2a63d]"></span>
-                                    <span class="text-xs font-black text-[#eaeef2] uppercase tracking-widest">{{ $tool->ai_tool }}</span>
+                    @if(auth()->user()->company->hasFeature('ai_tool_tracking'))
+                        @if($aiToolBreakdown->count() > 0)
+                        <div class="space-y-6 relative z-10">
+                            @foreach($aiToolBreakdown as $tool)
+                            @php
+                                $toolMins = round($tool->total_seconds / 60);
+                                $maxSecs  = $aiToolBreakdown->max('total_seconds') ?: 1;
+                                $barPct   = round(($tool->total_seconds / $maxSecs) * 100);
+                            @endphp
+                            <div class="group">
+                                <div class="flex justify-between items-end mb-2">
+                                    <div class="flex items-center gap-2">
+                                        <span class="w-1.5 h-1.5 rounded-full bg-[#d2a63d]"></span>
+                                        <span class="text-xs font-black text-[#eaeef2] uppercase tracking-widest">{{ $tool->ai_tool }}</span>
+                                    </div>
+                                    <span class="text-[10px] font-bold text-[#eaeef2]/50 uppercase tracking-wider">{{ $toolMins }} mins <span class="mx-1 text-[#eaeef2]/20">|</span> {{ $tool->sessions }} sessions</span>
                                 </div>
-                                <span class="text-[10px] font-bold text-[#eaeef2]/50 uppercase tracking-wider">{{ $toolMins }} mins <span class="mx-1 text-[#eaeef2]/20">|</span> {{ $tool->sessions }} sessions</span>
+                                <div class="w-full bg-[#0a1225] h-2 rounded-full overflow-hidden border border-[#d2a63d]/20">
+                                    <div class="bg-gradient-to-r from-[#d2a63d] to-[#b88e2c] h-full rounded-full transition-all duration-1000 shadow-[0_0_10px_rgba(210,166,61,0.5)]" style="width: {{ $barPct }}%"></div>
+                                </div>
                             </div>
-                            <div class="w-full bg-[#0a1225] h-2 rounded-full overflow-hidden border border-[#d2a63d]/20">
-                                <div class="bg-gradient-to-r from-[#d2a63d] to-[#b88e2c] h-full rounded-full transition-all duration-1000 shadow-[0_0_10px_rgba(210,166,61,0.5)]" style="width: {{ $barPct }}%"></div>
-                            </div>
+                            @endforeach
                         </div>
-                        @endforeach
-                    </div>
+                        @else
+                        <div class="text-center py-10 relative z-10 bg-[#d2a63d]/5 rounded-2xl border border-[#d2a63d]/20 border-dashed">
+                            <div class="w-16 h-16 rounded-full bg-[#010717] flex items-center justify-center mx-auto mb-4 border border-[#d2a63d]/30">
+                                <i class="fas fa-robot text-2xl text-[#d2a63d]/50"></i>
+                            </div>
+                            <p class="text-[#eaeef2]/70 font-bold uppercase tracking-widest text-xs">No Neural Activity</p>
+                            <p class="text-[#eaeef2]/40 text-[10px] mt-2 uppercase tracking-widest">No AI tools recorded for {{ ucfirst($period) }}.</p>
+                        </div>
+                        @endif
                     @else
-                    <div class="text-center py-10 relative z-10 bg-[#d2a63d]/5 rounded-2xl border border-[#d2a63d]/20 border-dashed">
-                        <div class="w-16 h-16 rounded-full bg-[#010717] flex items-center justify-center mx-auto mb-4 border border-[#d2a63d]/30">
-                            <i class="fas fa-robot text-2xl text-[#d2a63d]/50"></i>
+                        {{-- LOCKED STATE --}}
+                        <div class="text-center py-12 relative z-10 bg-[#0a1225]/80 rounded-2xl border border-dashed border-[#eaeef2]/20 backdrop-blur-sm">
+                            <i class="fas fa-lock text-3xl text-[#eaeef2]/30 mb-3"></i>
+                            <h3 class="text-sm font-bold text-[#eaeef2]/50 uppercase tracking-widest">Neural Analysis Locked</h3>
+                            <p class="text-[10px] text-[#eaeef2]/30 mt-1 mb-4">Requires Advanced Plan.</p>
+                            <button onclick="upgradePrompt('Advanced', 'AI Tool Tracking')" class="bg-rose-500/10 text-rose-400 border border-rose-500/30 px-4 py-2 rounded text-[10px] font-bold uppercase hover:bg-rose-500 hover:text-white transition-all">
+                                <i class="fas fa-unlock mr-1"></i> Unlock Feature
+                            </button>
                         </div>
-                        <p class="text-[#eaeef2]/70 font-bold uppercase tracking-widest text-xs">No Neural Activity</p>
-                        <p class="text-[#eaeef2]/40 text-[10px] mt-2 uppercase tracking-widest">No AI tools recorded for {{ ucfirst($period) }}.</p>
-                    </div>
                     @endif
                 </div>
 
@@ -260,7 +315,7 @@
             {{-- ── RIGHT PANE (SURVEILLANCE, REVIEWS, LOGS) ──────────── --}}
             <div class="space-y-8">
 
-                {{-- LATEST SCREENSHOT (LIVE MONITOR) --}}
+                {{-- 🔒 LATEST SCREENSHOT (BASIC) --}}
                 <div class="bg-[#010717] rounded-3xl border border-[#d2a63d]/30 shadow-[0_0_30px_rgba(0,0,0,0.5)] overflow-hidden relative" data-latest-shot-id="{{ $latestScreenshot->id ?? 0 }}">
                     <div class="absolute inset-0 border border-[#d2a63d]/20 rounded-3xl pointer-events-none z-20"></div>
                     
@@ -279,34 +334,46 @@
                         @endif
                     </div>
 
-                    @if($latestScreenshot)
-                    <div class="relative group cursor-pointer" onclick="previewShot('{{ asset('storage/' . $latestScreenshot->image_path) }}', '{{ addslashes($latestScreenshot->window_title ?? '') }}', '{{ addslashes($employee->name) }}')">
-                        <img id="last-pulse-img" src="{{ asset('storage/' . $latestScreenshot->image_path) }}" class="w-full object-cover max-h-56 opacity-80 group-hover:opacity-100 transition-all duration-500 mix-blend-screen">
-                        
-                        <div class="absolute inset-0 bg-[linear-gradient(rgba(210,166,61,0.1)_1px,transparent_1px),linear-gradient(90deg,rgba(210,166,61,0.1)_1px,transparent_1px)] bg-[size:20px_20px] pointer-events-none opacity-50"></div>
-                        <div class="absolute top-1/2 left-0 w-full h-[2px] bg-[#d2a63d]/50 shadow-[0_0_10px_#d2a63d] opacity-30 pointer-events-none animate-scan"></div>
-                        
-                        <div class="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity z-10 bg-black/40">
-                            <div class="bg-[#d2a63d]/80 backdrop-blur text-[#010717] w-10 h-10 rounded-full flex items-center justify-center">
-                                <i class="fas fa-expand"></i>
+                    @if(auth()->user()->company->hasFeature('screenshot_monitoring'))
+                        @if($latestScreenshot)
+                        <div class="relative group cursor-pointer" onclick="previewShot('{{ asset('storage/' . $latestScreenshot->image_path) }}', '{{ addslashes($latestScreenshot->window_title ?? '') }}', '{{ addslashes($employee->name) }}')">
+                            <img id="last-pulse-img" src="{{ asset('storage/' . $latestScreenshot->image_path) }}" class="w-full object-cover max-h-56 opacity-80 group-hover:opacity-100 transition-all duration-500 mix-blend-screen">
+                            
+                            <div class="absolute inset-0 bg-[linear-gradient(rgba(210,166,61,0.1)_1px,transparent_1px),linear-gradient(90deg,rgba(210,166,61,0.1)_1px,transparent_1px)] bg-[size:20px_20px] pointer-events-none opacity-50"></div>
+                            <div class="absolute top-1/2 left-0 w-full h-[2px] bg-[#d2a63d]/50 shadow-[0_0_10px_#d2a63d] opacity-30 pointer-events-none animate-scan"></div>
+                            
+                            <div class="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity z-10 bg-black/40">
+                                <div class="bg-[#d2a63d]/80 backdrop-blur text-[#010717] w-10 h-10 rounded-full flex items-center justify-center">
+                                    <i class="fas fa-expand"></i>
+                                </div>
                             </div>
                         </div>
-                    </div>
-                    <div class="p-5 bg-gradient-to-t from-[#010717] to-[#010717]/90 border-t border-[#d2a63d]/30">
-                        <p id="last-pulse-title" class="text-[10px] font-black text-[#eaeef2] uppercase tracking-widest truncate flex items-center gap-2">
-                            <i class="fas fa-terminal text-[#d2a63d]"></i> {{ $latestScreenshot->window_title ?? 'Unknown Interface' }}
-                        </p>
-                        <p id="last-pulse-time" class="text-[8px] text-[#eaeef2]/50 mt-2 uppercase tracking-[0.2em] font-bold">Signal received: {{ $latestScreenshot->created_at->diffForHumans() }}</p>
-                    </div>
+                        <div class="p-5 bg-gradient-to-t from-[#010717] to-[#010717]/90 border-t border-[#d2a63d]/30">
+                            <p id="last-pulse-title" class="text-[10px] font-black text-[#eaeef2] uppercase tracking-widest truncate flex items-center gap-2">
+                                <i class="fas fa-terminal text-[#d2a63d]"></i> {{ $latestScreenshot->window_title ?? 'Unknown Interface' }}
+                            </p>
+                            <p id="last-pulse-time" class="text-[8px] text-[#eaeef2]/50 mt-2 uppercase tracking-[0.2em] font-bold">Signal received: {{ $latestScreenshot->created_at->diffForHumans() }}</p>
+                        </div>
+                        @else
+                        <div class="h-48 flex flex-col items-center justify-center bg-[#d2a63d]/5 border-t border-[#d2a63d]/30">
+                            <i class="fas fa-satellite-dish text-4xl text-[#d2a63d]/30 mb-3"></i>
+                            <p class="text-[10px] text-[#eaeef2]/40 font-bold uppercase tracking-widest">No Signal Detected</p>
+                        </div>
+                        @endif
                     @else
-                    <div class="h-48 flex flex-col items-center justify-center bg-[#d2a63d]/5">
-                        <i class="fas fa-satellite-dish text-4xl text-[#d2a63d]/30 mb-3"></i>
-                        <p class="text-[10px] text-[#eaeef2]/40 font-bold uppercase tracking-widest">No Signal Detected</p>
-                    </div>
+                        {{-- LOCKED STATE --}}
+                        <div class="h-48 flex flex-col items-center justify-center bg-[#0a1225]/80 border-t border-[#d2a63d]/30 backdrop-blur-sm">
+                            <i class="fas fa-lock text-3xl text-[#eaeef2]/30 mb-3"></i>
+                            <h3 class="text-sm font-bold text-[#eaeef2]/50 uppercase tracking-widest">Surveillance Locked</h3>
+                            <p class="text-[10px] text-[#eaeef2]/30 mt-1 mb-3">Requires Basic Plan.</p>
+                            <button onclick="upgradePrompt('Basic', 'Live Screenshot Monitoring')" class="bg-blue-500/10 text-blue-400 border border-blue-500/30 px-3 py-1.5 rounded text-[10px] font-bold uppercase hover:bg-blue-500 hover:text-white transition-all">
+                                Unlock Basic
+                            </button>
+                        </div>
                     @endif
                 </div>
 
-                {{-- PERFORMANCE EVALUATIONS --}}
+                {{-- 🔒 PERFORMANCE EVALUATIONS (PRO) --}}
                 <div class="bg-[#010717] p-8 rounded-3xl border border-[#d2a63d]/20 shadow-xl relative overflow-hidden">
                     <div class="absolute -right-10 -top-10 text-8xl text-[#d2a63d]/5 font-black italic">★</div>
                     <div class="flex justify-between items-center mb-6 relative z-10">
@@ -315,24 +382,36 @@
                         </h4>
                     </div>
                     
-                    <div class="space-y-4 relative z-10">
-                        @forelse($adminFeedbacks as $review)
-                        <div class="p-5 rounded-2xl bg-[#d2a63d]/5 border border-[#d2a63d]/20">
-                            <div class="flex justify-between items-start mb-3">
-                                <div class="bg-[#d2a63d]/10 border border-[#d2a63d]/20 px-2.5 py-1 rounded flex items-center gap-1.5 text-[#d2a63d] text-[10px] font-black tracking-widest">
-                                    <i class="fas fa-bolt"></i> {{ $review->rating_score }}/10
+                    @if(auth()->user()->company->hasFeature('employee_rating_feedback'))
+                        <div class="space-y-4 relative z-10">
+                            @forelse($adminFeedbacks as $review)
+                            <div class="p-5 rounded-2xl bg-[#d2a63d]/5 border border-[#d2a63d]/20">
+                                <div class="flex justify-between items-start mb-3">
+                                    <div class="bg-[#d2a63d]/10 border border-[#d2a63d]/20 px-2.5 py-1 rounded flex items-center gap-1.5 text-[#d2a63d] text-[10px] font-black tracking-widest">
+                                        <i class="fas fa-bolt"></i> {{ $review->rating_score }}/10
+                                    </div>
+                                    <span class="text-[8px] font-bold text-[#eaeef2]/50 uppercase tracking-widest">{{ $review->created_at->format('d M Y') }}</span>
                                 </div>
-                                <span class="text-[8px] font-bold text-[#eaeef2]/50 uppercase tracking-widest">{{ $review->created_at->format('d M Y') }}</span>
+                                <p class="text-[11px] text-[#eaeef2]/80 font-bold leading-relaxed mb-3">"{{ $review->review_note }}"</p>
+                                <span class="text-[8px] font-black uppercase tracking-[0.2em] text-[#eaeef2]/60 bg-[#010717] border border-[#d2a63d]/20 px-2 py-1 rounded inline-block">{{ str_replace('_', ' ', $review->status) }}</span>
                             </div>
-                            <p class="text-[11px] text-[#eaeef2]/80 font-bold leading-relaxed mb-3">"{{ $review->review_note }}"</p>
-                            <span class="text-[8px] font-black uppercase tracking-[0.2em] text-[#eaeef2]/60 bg-[#010717] border border-[#d2a63d]/20 px-2 py-1 rounded inline-block">{{ str_replace('_', ' ', $review->status) }}</span>
+                            @empty
+                            <div class="text-center py-8 bg-[#d2a63d]/5 rounded-2xl border border-[#d2a63d]/20 border-dashed">
+                                <p class="text-[#eaeef2]/40 italic text-[10px] uppercase tracking-widest">No Evaluations Found</p>
+                            </div>
+                            @endforelse
                         </div>
-                        @empty
-                        <div class="text-center py-8 bg-[#d2a63d]/5 rounded-2xl border border-[#d2a63d]/20 border-dashed">
-                            <p class="text-[#eaeef2]/40 italic text-[10px] uppercase tracking-widest">No Evaluations Found</p>
+                    @else
+                        {{-- LOCKED STATE --}}
+                        <div class="text-center py-10 relative z-10 bg-[#0a1225]/80 rounded-2xl border border-dashed border-[#eaeef2]/20 backdrop-blur-sm">
+                            <i class="fas fa-lock text-3xl text-[#eaeef2]/30 mb-3"></i>
+                            <h3 class="text-sm font-bold text-[#eaeef2]/50 uppercase tracking-widest">Reviews Locked</h3>
+                            <p class="text-[10px] text-[#eaeef2]/30 mt-1 mb-4">Requires Pro Plan.</p>
+                            <button onclick="upgradePrompt('Pro', 'Employee Evaluation & Feedback')" class="bg-purple-500/10 text-purple-400 border border-purple-500/30 px-4 py-2 rounded text-[10px] font-bold uppercase hover:bg-purple-500 hover:text-white transition-all">
+                                <i class="fas fa-unlock mr-1"></i> Unlock Feature
+                            </button>
                         </div>
-                        @endforelse
-                    </div>
+                    @endif
                 </div>
 
                 {{-- OPERATOR TERMINAL LOGS --}}

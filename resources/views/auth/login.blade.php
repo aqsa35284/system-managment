@@ -15,10 +15,18 @@
     {{-- Main Login Card --}}
     <div class="w-full max-w-md bg-[#030712] border border-[#d2a63d]/30 rounded-[3.5rem] p-12 shadow-[0_0_40px_rgba(210,166,61,0.1)] relative overflow-hidden">
         
+        {{-- Back to Index Button --}}
+        <a href="{{ url('/') }}" class="absolute top-8 left-8 text-[#d2a63d]/50 hover:text-[#d2a63d] transition-all flex items-center gap-2 text-[10px] font-black uppercase tracking-widest italic group z-20">
+            <svg class="w-4 h-4 transform group-hover:-translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path>
+            </svg>
+            Index
+        </a>
+
         {{-- Top Right Decorative Glow --}}
         <div class="absolute top-0 right-0 w-32 h-32 bg-[#d2a63d] rounded-bl-full opacity-10"></div>
         
-        <div class="relative z-10">
+        <div class="relative z-10 mt-6">
             <h3 class="text-3xl font-black text-[#eaeef2] uppercase italic tracking-tighter mb-2">
                 Login <span class="text-[#d2a63d]">Portal</span>
             </h3>
@@ -54,7 +62,7 @@
             
             {{-- Error Handling --}}
             @if($errors->any())
-                <p class="text-red-500 text-[10px] font-black mt-6 text-center uppercase italic tracking-widest">
+                <p class="text-red-500 text-[10px] font-black mt-6 text-center uppercase italic tracking-widest bg-red-500/10 p-2 rounded-xl">
                     {{ $errors->first() }}
                 </p>
             @endif

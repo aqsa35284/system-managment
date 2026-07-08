@@ -12,8 +12,19 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware) {
-        
-        // Yahan $middleware ke sath '$' lagana lazmi tha
+
+        $middleware->trustProxies(at: '*');
+
+        $middleware->web(
+            append: [
+                \App\Http\Middleware\SecurityHeaders::class,
+            ],
+            replace: [
+                \Illuminate\Foundation\Http\Middleware\ValidateCsrfToken::class => \App\Http\Middleware\ValidateCsrfToken::class,
+            ],
+        );
+
+        // ⭐ $middleware ke sath alias register karna bilkul perfect hai
         $middleware->alias([
             'admin'              => \App\Http\Middleware\AdminMiddleware::class,
             'employee'           => \App\Http\Middleware\EmployeeMiddleware::class,
@@ -21,6 +32,8 @@ return Application::configure(basePath: dirname(__DIR__))
             'check_subscription' => \App\Http\Middleware\CheckSubscription::class,
             'shadow_mode'        => \App\Http\Middleware\ShadowMode::class,
             'shadow_audit'       => \App\Http\Middleware\ShadowAuditMiddleware::class,
+            'partner'            => \App\Http\Middleware\PartnerMiddleware::class,
+            'feature'            => \App\Http\Middleware\CheckFeature::class,
         ]);
 
     })

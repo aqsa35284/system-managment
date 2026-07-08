@@ -20,6 +20,9 @@
     <link rel="stylesheet" href="{{ asset('build/assets/app-DoURTLbS.css') }}">
     <script src="{{ asset('build/assets/app-BTIP2hA6.js') }}" defer></script>
 
+    {{-- ⭐ SWEETALERT FOR UPGRADE PROMPT --}}
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+
     <style>
         body { 
             font-family: 'Inter', sans-serif;
@@ -95,7 +98,6 @@
                 <div class="flex items-center gap-3">
                     <div class="w-10 h-10 rounded-xl flex items-center justify-center shadow-lg" style="background: linear-gradient(135deg, #d2a63d, #a07828);">
                          <img src="{{ asset('storage/logo/hori.svg') }}" alt="Logo" class="w-full h-full object-contain p-1" onerror="this.style.display='none'; this.nextElementSibling.style.display='block';">
-                    
                     </div>
                     <div>
                         <h1 class="text-2xl font-bold uppercase tracking-tight" style="color: #eaeef2;">Employee <span style="color: #d2a63d;">Member</span></h1>
@@ -105,6 +107,9 @@
             </div>
 
             <nav class="flex-1 px-6 space-y-2 overflow-y-auto custom-sidebar">
+                
+                <p class="px-4 pt-2 pb-2 text-[8px] font-black uppercase tracking-[0.2em] text-[#eaeef2]/30">Core Operations</p>
+
                 <a href="{{ route('employee.dashboard') }}"
                    class="sidebar-link flex items-center gap-4 p-4 rounded-xl font-medium text-sm transition-all {{ request()->routeIs('employee.dashboard') ? 'active' : '' }}"
                    style="{{ !request()->routeIs('employee.dashboard') ? 'color: rgba(234,238,242,0.6);' : '' }}"
@@ -113,7 +118,6 @@
                     <i class="fas fa-terminal w-5" style="color: #d2a63d;"></i> Employee Dashboard
                 </a>
 
-                {{-- ⭐ YAHAN INDEX KIYA HAI --}}
                 <a href="{{ route('employee.projects.index') }}"
                    class="sidebar-link flex items-center gap-4 p-4 rounded-xl font-medium text-sm transition-all {{ request()->routeIs('employee.projects.*') ? 'active' : '' }}"
                    style="{{ !request()->routeIs('employee.projects.*') ? 'color: rgba(234,238,242,0.6);' : '' }}"
@@ -122,29 +126,12 @@
                     <i class="fas fa-rocket w-5" style="color: #d2a63d;"></i> Project
                 </a>
 
-                {{-- ⭐ YAHAN BHI INDEX KIYA HAI --}}
                 <a href="{{ route('employee.tasks.index') }}"
                    class="sidebar-link flex items-center gap-4 p-4 rounded-xl font-medium text-sm transition-all {{ request()->routeIs('employee.tasks.*') ? 'active' : '' }}"
                    style="{{ !request()->routeIs('employee.tasks.*') ? 'color: rgba(234,238,242,0.6);' : '' }}"
                    onmouseover="{{ !request()->routeIs('employee.tasks.*') ? 'this.style.background=\"rgba(210,166,61,0.06)\"' : '' }}"
                    onmouseout="{{ !request()->routeIs('employee.tasks.*') ? 'this.style.background=\"transparent\"' : '' }}">
                     <i class="fas fa-chart-pie w-5" style="color: #d2a63d;"></i> MyTask
-                </a>
-
-                {{-- ⭐ Updated Secure Comms with Ping Badge --}}
-                <a href="{{ route('chat.index') }}"
-                   class="sidebar-link group flex items-center justify-between p-4 rounded-xl font-medium text-sm transition-all {{ request()->routeIs('chat.*') ? 'active' : '' }}"
-                   style="{{ !request()->routeIs('chat.*') ? 'color: rgba(234,238,242,0.6);' : '' }}"
-                   onmouseover="{{ !request()->routeIs('chat.*') ? 'this.style.background=\"rgba(210,166,61,0.06)\"' : '' }}"
-                   onmouseout="{{ !request()->routeIs('chat.*') ? 'this.style.background=\"transparent\"' : '' }}">
-                    <div class="flex items-center gap-4">
-                        <div class="relative">
-                            <i class="fas fa-comment-dots w-5 group-hover:scale-110 transition-transform" style="color: #d2a63d;"></i>
-                            <span id="employee-chat-ping" class="hidden absolute -top-1 -right-1 w-2 h-2 rounded-full animate-ping" style="background-color: #ef4444;"></span>
-                        </div>
-                        Whatsapp
-                    </div>
-                    <span id="employee-chat-badge" class="hidden min-w-[22px] h-[22px] text-white text-[10px] font-black rounded-full flex items-center justify-center" style="background: linear-gradient(135deg, #ef4444, #dc2626); box-shadow: 0 0 15px rgba(239,68,68,0.5);">0</span>
                 </a>
 
                 <a href="{{ route('employee.attendance.index') }}"
@@ -154,6 +141,37 @@
                    onmouseout="{{ !request()->routeIs('employee.attendance.*') ? 'this.style.background=\"transparent\"' : '' }}">
                     <i class="fas fa-clipboard-list w-5" style="color: #d2a63d;"></i> Attendances
                 </a>
+
+                <p class="px-4 pt-6 pb-2 text-[8px] font-black uppercase tracking-[0.2em] text-[#d2a63d]/50">Team & Comms</p>
+
+                {{-- ⭐ 🔒 PRO FEATURE: Secure Comms (Whatsapp) --}}
+                @if(auth()->user()->company->hasFeature('team_chat'))
+                    <a href="{{ route('chat.index') }}"
+                       class="sidebar-link group flex items-center justify-between p-4 rounded-xl font-medium text-sm transition-all {{ request()->routeIs('chat.*') ? 'active' : '' }}"
+                       style="{{ !request()->routeIs('chat.*') ? 'color: rgba(234,238,242,0.6);' : '' }}"
+                       onmouseover="{{ !request()->routeIs('chat.*') ? 'this.style.background=\"rgba(210,166,61,0.06)\"' : '' }}"
+                       onmouseout="{{ !request()->routeIs('chat.*') ? 'this.style.background=\"transparent\"' : '' }}">
+                        <div class="flex items-center gap-4">
+                            <div class="relative">
+                                <i class="fas fa-comment-dots w-5 group-hover:scale-110 transition-transform" style="color: #d2a63d;"></i>
+                                <span id="employee-chat-ping" class="hidden absolute -top-1 -right-1 w-2 h-2 rounded-full animate-ping" style="background-color: #ef4444;"></span>
+                            </div>
+                            Whatsapp
+                        </div>
+                        <span id="employee-chat-badge" class="hidden min-w-[22px] h-[22px] text-white text-[10px] font-black rounded-full flex items-center justify-center" style="background: linear-gradient(135deg, #ef4444, #dc2626); box-shadow: 0 0 15px rgba(239,68,68,0.5);">0</span>
+                    </a>
+                @else
+                    <button onclick="upgradePrompt('Pro', 'Team Communication')" 
+                            class="w-full sidebar-link flex items-center justify-between p-4 rounded-xl font-medium text-sm transition-all"
+                            style="color: rgba(234,238,242,0.3); cursor: not-allowed;"
+                            onmouseover="this.style.background='rgba(234,238,242,0.05)'"
+                            onmouseout="this.style.background='transparent'">
+                        <div class="flex items-center gap-4">
+                            <i class="fas fa-comment-dots w-5" style="color: rgba(234,238,242,0.3);"></i> Whatsapp
+                        </div>
+                        <span class="text-[8px] px-1.5 py-0.5 rounded uppercase font-black tracking-widest flex items-center gap-1" style="background: rgba(168,85,247,0.1); color: #a855f7; border: 1px solid rgba(168,85,247,0.3);">Pro <i class="fas fa-lock"></i></span>
+                    </button>
+                @endif
 
                 <div class="pt-4 mt-4" style="border-top: 1px solid rgba(210, 166, 61, 0.12);">
                     <a href="#"
@@ -200,7 +218,7 @@
                     <div class="w-10 h-10 rounded-xl flex items-center justify-center shadow-lg" style="background: linear-gradient(135deg, #d2a63d, #a07828);">
                         <i class="fas fa-rocket" style="color: #010717;"></i>
                     </div>
-                    <h1 class="font-bold uppercase tracking-tight" style="color: #eaeef2;">Attendance <span style="color: #d2a63d;">Member</span></h1>
+                    <h1 class="font-bold uppercase tracking-tight" style="color: #eaeef2;">Employee <span style="color: #d2a63d;">Member</span></h1>
                 </div>
                 <div class="flex items-center gap-4">
                     {{-- ⭐ Mobile Notification Bell --}}
@@ -225,6 +243,23 @@
         function toggleSidebar() {
             document.getElementById('sidebar').classList.toggle('hidden');
             document.getElementById('sidebar-overlay').classList.toggle('hidden');
+        }
+
+        // ⭐ Feature Upgrade Prompt for Employees
+        function upgradePrompt(planName, featureName) {
+            Swal.fire({
+                icon: 'lock',
+                title: 'Access Restricted',
+                html: `<p style="color:#eaeef2; margin-bottom:10px;">The <b>${featureName}</b> module is currently locked.</p><p style="color:#eaeef2; opacity:0.7; font-size:12px;">This feature requires the <span style="color:#d2a63d; font-weight:bold;">${planName} Plan</span>. Please contact your company's Administrator to request access.</p>`,
+                background: '#0a1225',
+                color: '#eaeef2',
+                confirmButtonColor: '#d2a63d',
+                confirmButtonText: '<i class="fas fa-user-shield mr-2"></i> Understood',
+                customClass: {
+                    popup: 'border border-[#d2a63d]/30 rounded-2xl shadow-[0_0_30px_rgba(210,166,61,0.2)]',
+                    title: 'text-[#d2a63d]'
+                }
+            });
         }
 
         // ⭐ Toast Notification Generator
@@ -273,56 +308,19 @@
             }, 6000);
         }
 
-        // ⭐ Global Unread Message Poller (Checks every 5 sec)
-        let lastMessageCount = 0;
-
-        function checkSystemAlerts() {
-            if (!window.UserId) return;
-
-            fetch("{{ url('/chat/unread-count') }}")
-            .then(res => res.json())
-            .then(data => {
-                const badge = document.getElementById('employee-chat-badge');
-                const ping  = document.getElementById('employee-chat-ping');
-                const mobileBadge = document.getElementById('mobile-chat-badge');
-
-                if (data.count > 0) {
-                    if(badge) { badge.innerText = data.count; badge.classList.remove('hidden'); }
-                    if(ping)  ping.classList.remove('hidden');
-                    if(mobileBadge) mobileBadge.classList.remove('hidden');
-
-                    if (data.count > lastMessageCount) {
-                        spawnToast(
-                            'Admin Transmission',
-                            `Secure message received from <b style="color:#eaeef2">${data.sender_name}</b>.`,
-                            'fa-envelope-open-text',
-                            'gold'
-                        );
-                    }
-                    lastMessageCount = data.count;
-                } else {
-                    if(badge) badge.classList.add('hidden');
-                    if(ping)  ping.classList.add('hidden');
-                    if(mobileBadge) mobileBadge.classList.add('hidden');
-                    lastMessageCount = 0;
-                }
-            }).catch(e => {});
-        }
-
-        checkSystemAlerts();
-        setInterval(checkSystemAlerts, 5000);
-
         // ⭐ WebSockets Listeners (For Instant Updates & Tasks)
         document.addEventListener('DOMContentLoaded', function() {
             if (typeof Echo !== 'undefined' && window.UserId) {
 
-                // 1. Instant Chat Message Listener
-                Echo.private(`chat.user.${window.UserId}`)
-                    .listen('MessageSent', (data) => {
-                        if (window.currentChatId !== data.message.sender_id) {
-                            checkSystemAlerts();
-                        }
-                    });
+                @if(auth()->user()->company->hasFeature('team_chat'))
+                    // 1. Instant Chat Message Listener (ONLY IF FEATURE UNLOCKED)
+                    Echo.private(`chat.user.${window.UserId}`)
+                        .listen('MessageSent', (data) => {
+                            if (window.currentChatId !== data.message.sender_id) {
+                                checkSystemAlerts();
+                            }
+                        });
+                @endif
 
                 // 2. Instant Task Assignment Listener
                 Echo.private(`user.alerts.${window.UserId}`)
@@ -345,6 +343,47 @@
                     });
             }
         });
+
+        // ⭐ Global Unread Message Poller (Checks every 5 sec - ONLY IF UNLOCKED)
+        @if(auth()->user()->company->hasFeature('team_chat'))
+            let lastMessageCount = 0;
+
+            function checkSystemAlerts() {
+                if (!window.UserId) return;
+
+                fetch("{{ url('/chat/unread-count') }}")
+                .then(res => res.json())
+                .then(data => {
+                    const badge = document.getElementById('employee-chat-badge');
+                    const ping  = document.getElementById('employee-chat-ping');
+                    const mobileBadge = document.getElementById('mobile-chat-badge');
+
+                    if (data.count > 0) {
+                        if(badge) { badge.innerText = data.count; badge.classList.remove('hidden'); }
+                        if(ping)  ping.classList.remove('hidden');
+                        if(mobileBadge) mobileBadge.classList.remove('hidden');
+
+                        if (data.count > lastMessageCount) {
+                            spawnToast(
+                                'Admin Transmission',
+                                `Secure message received from <b style="color:#eaeef2">${data.sender_name}</b>.`,
+                                'fa-envelope-open-text',
+                                'gold'
+                            );
+                        }
+                        lastMessageCount = data.count;
+                    } else {
+                        if(badge) badge.classList.add('hidden');
+                        if(ping)  ping.classList.add('hidden');
+                        if(mobileBadge) mobileBadge.classList.add('hidden');
+                        lastMessageCount = 0;
+                    }
+                }).catch(e => {});
+            }
+
+            checkSystemAlerts();
+            setInterval(checkSystemAlerts, 5000);
+        @endif
     </script>
 </body>
 </html>

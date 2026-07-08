@@ -228,14 +228,25 @@
                                 </div>
 
                                 <div class="flex gap-2 w-full md:w-auto mt-4 md:mt-0">
-                                    <button onclick="openForwardModal({{ $task->id }})"
-                                            class="px-4 py-2.5 rounded-xl text-[10px] font-black transition-all shadow-lg"
-                                            style="background: rgba(210,166,61,0.1); color: #d2a63d; border: 1px solid rgba(210,166,61,0.25);"
-                                            onmouseover="this.style.background='#d2a63d'; this.style.color='#010717'; this.style.borderColor='#d2a63d';"
-                                            onmouseout="this.style.background='rgba(210,166,61,0.1)'; this.style.color='#d2a63d'; this.style.borderColor='rgba(210,166,61,0.25)';"
-                                            title="Forward Task">
-                                        <i class="fas fa-share-square"></i>
-                                    </button>
+                                    {{-- ⭐ 🔒 PRO FEATURE: Task Forwarding Lock --}}
+                                    @if(auth()->user()->company->hasFeature('task_forwarding'))
+                                        <button onclick="openForwardModal({{ $task->id }})"
+                                                class="px-4 py-2.5 rounded-xl text-[10px] font-black transition-all shadow-lg"
+                                                style="background: rgba(210,166,61,0.1); color: #d2a63d; border: 1px solid rgba(210,166,61,0.25);"
+                                                onmouseover="this.style.background='#d2a63d'; this.style.color='#010717'; this.style.borderColor='#d2a63d';"
+                                                onmouseout="this.style.background='rgba(210,166,61,0.1)'; this.style.color='#d2a63d'; this.style.borderColor='rgba(210,166,61,0.25)';"
+                                                title="Forward Task">
+                                            <i class="fas fa-share-square"></i>
+                                        </button>
+                                    @else
+                                        <button onclick="upgradePrompt('Pro', 'Task Forwarding')"
+                                                class="px-4 py-2.5 rounded-xl text-[10px] font-black transition-all shadow-lg cursor-not-allowed group relative"
+                                                style="background: rgba(138,155,176,0.05); color: #4a5568; border: 1px solid rgba(138,155,176,0.1);"
+                                                title="Requires Pro Plan">
+                                            <i class="fas fa-lock"></i>
+                                        </button>
+                                    @endif
+
                                     <button onclick="openOperationalModal({{ $task->id }})"
                                             class="flex-1 md:flex-none px-6 py-2.5 rounded-xl text-[9px] font-black uppercase tracking-[0.2em] transition-all shadow-lg"
                                             style="background: #d2a63d; color: #010717;"
@@ -331,7 +342,7 @@
     </div>
 </div>
 
-{{-- Forward Task Modal --}}
+{{-- Forward Task Modal (Only functional if feature is unlocked, but good to keep structure) --}}
 <div id="forwardModal" class="fixed inset-0 z-[10000] hidden backdrop-blur-md flex items-center justify-center p-4" style="background-color: rgba(1,7,23,0.95);">
     <div id="forwardModalContent" class="max-w-lg w-full rounded-[2.5rem] shadow-[0_0_50px_rgba(0,0,0,0.6)] overflow-hidden transform scale-95 opacity-0 transition-all duration-300" style="background-color: #05101f; border: 1px solid rgba(210,166,61,0.2);">
         <div class="p-6 flex justify-between items-center" style="background: rgba(210,166,61,0.05); border-bottom: 1px solid rgba(210,166,61,0.15);">
